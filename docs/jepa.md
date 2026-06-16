@@ -74,6 +74,7 @@ $$
 
 Negative examples are not strictly required by contrastive learning algorithms, and they can be substituted by using **siamese networks**. \
 Siamese networks aim to just maximize the similarity between two augmented versions of a single data point, while incorporating conditions and regularization so to prevent *collapsing* solutions, i.e., all the data are mapped to a single point. \
+Usually, one network is kept fixed or updated more slowly (the *teacher*), while the other is continuously updated (the *student*). \
 This kind of approach is called *self-distillation-based contrastive learning*.
 Two notable algorithms are **SimSiam** and **BYOL**. \
 SimSiam (Simple Siamese) exploits lightweight networks, consisting only of an encoder $f$ and a prediction head $h$, and optimizes a symmetric cosine similarity loss, defined as:
@@ -119,13 +120,32 @@ Generative algorithms for SSL include a variety of models. \
 The family that is most interesting for our project is the family of Masked (Image) Modelling, that includes **BEIT** (Bidirectional Encoder representation from Image Transformers) and **Masked AutoEncoders**. \
 This family takes the name from the fact that a portion of the data, usually images or videos, is hidden, and the models are required to generate that missing chunk.
 
-Both the architectures make use of vision transformers. \
-BEIT introduces a MIM task for visual pretraining: breaks down the input image into visual tokens, and then predicts a randomly masked subset of them. \
-On the contrary, MAEtries to sparsify the image signals, while using original pixels as its target. 
+Both the architectures make use of vision transformers (ViT). \
+BEIT introduces a MIM task for visual pretraining: breaks down the input image into visual tokens and then predicts a randomly masked subset of them. \
+On the contrary, MAE tries to sparsify the image signals while using original pixels as its target. 
+
+The **DINO** model bridges the gap between generative algorithms and contrastive learning. At its core, it is built on a Vision Transformer (ViT) and uses a "student-teacher" setup—meaning a student network learns by trying to mimic a teacher network. \
+To keep the training stable regardless of how much data is processed at once (the mini-batch size), DINO adjusts the outputs using a moving average called "centering."
+It then uses a temperature-scaled softmax function to turn these outputs into smooth probability distributions:
+$$
+    P_s(x) = \text{softmax}\left(\frac{f_{\theta_s}(x)}{\tau_s}\right)
+$$
+$$
+    P_t(x) = \text{softmax}\left(\frac{f_{\theta_t}(x) - C}{\tau_t}\right)
+$$
+where $P_s$ is the student distribution, and $P_t$ the teacher one, given an augmented image view ($x$). \
+Finally, the loss is the Cross-Entropy ($H$) between the teacher's prediction of one view ($x_2$) and the student's prediction of another view ($x_1$):
+$$
+    \mathcal{L} = - P_t(x_2) \log P_s(x_1)
+$$
+The discretization in DINO caused by the softmax can be interpreted as an online clustering
+mechanism, where the last layer before the softmax contains the clustering prototypes
+and its weight. As such, the output of the penultimate layer is clustered using the weights
+of the last layer. 
 
 ---
 
-## JEPA architecture
+## JEPA: the core ideas
 
 ---
 
@@ -137,6 +157,7 @@ On the contrary, MAEtries to sparsify the image signals, while using original pi
 Main papers:
 - *Gui, Chen et al.*, 2024, ***A Survey on Self-Supervised Learning: Algorithms, Applications, and Future Trends***
 - *Hu, Wang et al.*, 2020, ***A Comprehensive Survey on Contrastive Learning***
+- *Balestriero*, 2023, ***A cookbook of Self-Supervised Learning***
 
 Main videos:
 - [AI Learns without labels](https://youtu.be/gVEr2cnDE_8?si=jFENjMPqFinjBfbe)
