@@ -151,7 +151,7 @@ The discretization in DINO caused by the softmax can be interpreted as an online
 
 ## JEPA: the core ideas
 
-The core philosophy of JEPA can be summarized in one sentence: *Predict the future/missing data in abstract embedding space, not in raw pixel or token space*.
+The core philosophy of **Joint-Embedding Predictive Architecture (JEPA)** can be summarized in one sentence: *Predict the future/missing data in abstract embedding space, not in raw pixel or token space*.
 
 Instead of forcing a model to generate exact outputs (like predicting the exact color of every pixel in a video frame), JEPA passes data through encoders to extract the essential semantic meaning.
 
@@ -172,7 +172,7 @@ Because a JEPA predictor operates in a highly compressed latent space, **an AI a
 
 ## LeWorld Model
 
-LeWorldModel (LeWM) is a **Joint-Embedding Predictive Architecture (JEPA)** designed to learn a compact world model directly from high-dimensional pixel observations in a completely offline, reward-free setup.
+LeWorldModel (LeWM) is a JEPA designed to learn a compact world model directly from high-dimensional pixel observations in a completely offline, reward-free setup.
 
 ### Architecture
 
@@ -249,6 +249,8 @@ To determine if the latent states captured actual physical characteristics, froz
 
 ## AV-JEPA
 
+Arcade-Videogame JEPA (AV-JEPA) is our framework.
+
 ### The Core Idea
 
 Current implementations of Joint-Embedding Predictive Architectures (JEPAs) operating in control environments suffer from a fundamental architectural decoupling. Typically, the framework relies on a strict two-stage protocol: first, the visual encoder and transition predictor are trained entirely offline in a reward-free, action-passive environment; second, these world model modules are structurally frozen, and a downstream policy optimizer utilizes the static latent embeddings for action planning (e.g., via zero-order solvers like the Cross-Entropy Method).
@@ -273,6 +275,8 @@ AV-JEPA consists of three jointly optimized components:
 1. **The Encoder ($\mathcal{E}_\theta$):** Maps raw high-dimensional pixel observations $o_t$ into a low-dimensional latent state representation $z_t = \mathcal{E}_\theta(o_t)$. (Adopts the standard $\text{ViT-Tiny}$ backbone).
 2. **The Predictor ($\mathcal{P}_\phi$):** An action-conditioned causal transformer that autoregressively models environment transitions in the latent space: $\hat{z}_{t+1} = \mathcal{P}_\phi(z_{\le t}, a_t)$. Action conditioning is injected dynamically using Adaptive Layer Normalization (`adaLN-Zero`).
 3. **The Policy Head ($\Pi_\psi$):** An active control module modeled as a Deep Q-Network (DQN) with an $\epsilon$-greedy exploration strategy. $\Pi_\psi$ maps either the current embedding $z_t$ (or an imagined short-horizon rollout sequence $\hat{z}_{t:t+H}$) to discrete action spaces.
+
+Consider that AV-JEPA aims to work in arcade-videogame like environments, where rewards are easy to model.
 
 ### Optimization Objectives
 
