@@ -331,8 +331,8 @@ $$
     \mathcal{L}_T = \alpha_t \mathcal{L}_{\mathcal{P}} + (1-\alpha_t) \cdot \lambda_\Pi \cdot \mathcal{L}_{\Pi} + \lambda_t \cdot \text{SIGReg(Z)}
 $$
     with $\alpha_t$ inverse function of the iteration, and $\lambda_\Pi$ a simple regularizer, e.g., set so that the mean of the previous $K$ $\mathcal{L}_{\mathcal{P}}$ has the same order of magnitude of the previous $K$ $\lambda_\Pi^- \mathcal{L}_{\Pi}$.
+- It is not clear to me (Enrico) the relevance of a *periodic* schedule for the regularization coefficient $\lambda_t$. Instead, we can schedule the weights as a function of the variance of the prediction errors, so to have higher regularization terms in case of big error spikes.
 - Give a glance to DeepMind Control Suite, especially for the Maze environment. They are standard in RL tasks.
-- It is not clear to me (Enrico) the relevance of a *periodic* schedule for the regularization coefficient $\lambda_t$.
 
 
 
