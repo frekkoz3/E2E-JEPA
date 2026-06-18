@@ -14,6 +14,9 @@ import numpy as np
 import pygame
 import random
 import os
+import torch
+
+from src.policy.policy import Policy
 
 CELL_SIZE = 50
 GRID_WIDTH, GRID_HEIGHT = 20, 20
@@ -312,10 +315,26 @@ class SnakeEnv(gym.Env):
 if __name__ == "__main__":
     
     # Usage with human interface
-    env = SnakeEnv(render_mode="human", observation_type="grid", max_step=500)
+    env = SnakeEnv(render_mode="human",
+                   observation_type="grid",
+                   max_step=500)
     obs, info = env.reset()
+
+    # N.B. DUE to memory constraints, if you set the policy, you need to also set CELL_SIZE = 1
+    policy = Policy(input_dim=3*GRID_WIDTH*GRID_HEIGHT,
+                    output_dim=4,
+                    network="AttentionDQN",
+                    num_attention_layer=2,
+                    attention_layer_params=[{"num_heads": 4}, {"num_heads": 4}],
+                    num_fc_layer=2,
+                    dim_fc_layer=[192, 32],
+                    epsilon_strategy="EpsilonGreedy",
+                    epsilon_start=1.0,
+                    coeff=0.995,
+                    epsilon_end=0.1)
     
     dir_mapping = {(0, -1): 0, (0, 1): 1, (-1, 0): 2, (1, 0): 3}
+    inv_mapping = {v: k for k, v in dir_mapping.items()}
     current_action = dir_mapping.get(env.direction, 0)
 
     done = False
@@ -334,9 +353,12 @@ if __name__ == "__main__":
     env.close()
 
     # Usage with headless interface
-    headless_env = SnakeEnv(render_mode=None, observation_type="image", max_step=100)
+    headless_env = SnakeEnv(render_mode=None,
+                            observation_type="image",
+                            max_step=100)
     
     img_obs, info = headless_env.reset()
+    # print("Initial image observation shape:", img_obs.shape)
     
     for _ in range(100):
         random_action = headless_env.action_space.sample()

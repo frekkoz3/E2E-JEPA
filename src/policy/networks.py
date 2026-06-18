@@ -31,7 +31,12 @@ class DQN(nn.Module):
     This is the standard PyTorch implementation. DO NOT MODIFY IT
     """
 
-    def __init__(self, input_dim : int, output_dim : int, num_hidden_layer : int, dim_hidden_layer : list[int]):
+    def __init__(self,
+                 input_dim : int,
+                 output_dim : int,
+                 num_hidden_layer : int,
+                 dim_hidden_layer : list[int],
+                 **kwargs):
         """
         Applies a feedforward neural network with ReLU activations to approximate Q-values.
 
@@ -84,7 +89,8 @@ class ConvDQN(nn.Module):
                  num_conv_layer : int,
                  conv_layer_params : list[dict],
                  num_fc_layer : int,
-                 dim_fc_layer : list[int]):
+                 dim_fc_layer : list[int],
+                 **kwargs):
         """
         Initializes the ConvDQN network.
 
@@ -117,7 +123,7 @@ class ConvDQN(nn.Module):
         self.conv_layers = nn.Sequential(*
             [
                 nn.Sequential(
-                    nn.Conv1d(in_channels=input_dim if i==0 else conv_layer_params[i-1].get('out_channels', 4),
+                    nn.Conv1d(in_channels=1 if i==0 else conv_layer_params[i-1].get('out_channels', 4),
                               out_channels=conv_layer_params[i].get('out_channels', 4),
                               kernel_size=conv_layer_params[i].get('kernel_size', 3),
                               stride=conv_layer_params[i].get('stride', 1)),
@@ -132,7 +138,7 @@ class ConvDQN(nn.Module):
                     nn.Linear(dim_fc_layer[i], dim_fc_layer[i+1]),
                     nn.ReLU()
                 )
-                for i in range(num_fc_layer)
+                for i in range(num_fc_layer-1)
             ]
         )
         self.output = nn.Linear(dim_fc_layer[-1], output_dim)
@@ -141,6 +147,7 @@ class ConvDQN(nn.Module):
     def forward(self, state):
         """ Forward pass through the network. """
         state = self.conv_layers(state)
+        state = torch.flatten(state, start_dim=1)
         state = self.fc_layers(state)
         q_values = self.output(state)
         return q_values
@@ -159,7 +166,8 @@ class AttentionDQN(nn.Module):
                  num_attention_layer : int,
                  attention_layer_params : list[dict],
                  num_fc_layer : int,
-                 dim_fc_layer : list[int]):
+                 dim_fc_layer : list[int],
+                 **kwargs):
         """
         Initializes the AttentionDQN network.
 
@@ -218,7 +226,7 @@ class AttentionDQN(nn.Module):
                 for i in range(num_fc_layer)
             ])
 
-        self.output = nn.Linear(current_dim, output_dim)
+        self.output = nn.Linear(dim_fc_layer[-1], output_dim)
 
 
     def forward(self, state):
