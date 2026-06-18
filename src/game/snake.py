@@ -77,13 +77,33 @@ class SnakeEnv(gym.Env):
             return pygame.transform.scale(img, (CELL_SIZE, CELL_SIZE))
 
         self.sprites = {
-            "head": load_sp(f"{RESOURCES_PATH}snake head.png"),
-            "straight": load_sp(f"{RESOURCES_PATH}snake straight body.png"),
-            "tail": load_sp(f"{RESOURCES_PATH}snake tail.png"),
-            "curve_up_left": load_sp(f"{RESOURCES_PATH}snake body up left.png"),
-            "curve_up_right": load_sp(f"{RESOURCES_PATH}snake body up right.png"),
-            "curve_down_left": load_sp(f"{RESOURCES_PATH}snake body down left.png"),
-            "curve_down_right": load_sp(f"{RESOURCES_PATH}snake body down right.png"),
+            "red_head": load_sp(f"{RESOURCES_PATH}red head.png"),
+            "red_straight": load_sp(f"{RESOURCES_PATH}red body straight.png"),
+            "red_tail": load_sp(f"{RESOURCES_PATH}red tail.png"),
+
+            "red_curve_up_left": load_sp(f"{RESOURCES_PATH}red up left.png"),
+            "red_curve_up_right": load_sp(f"{RESOURCES_PATH}red up right.png"),
+            "red_curve_down_left": load_sp(f"{RESOURCES_PATH}red down left.png"),
+            "red_curve_down_right": load_sp(f"{RESOURCES_PATH}red down right.png"),
+
+            "green_head": load_sp(f"{RESOURCES_PATH}green head.png"),
+            "green_straight": load_sp(f"{RESOURCES_PATH}green body straight.png"),
+            "green_tail": load_sp(f"{RESOURCES_PATH}green tail.png"),
+
+            "green_curve_up_left": load_sp(f"{RESOURCES_PATH}green up left.png"),
+            "green_curve_up_right": load_sp(f"{RESOURCES_PATH}green up right.png"),
+            "green_curve_down_left": load_sp(f"{RESOURCES_PATH}green down left.png"),
+            "green_curve_down_right": load_sp(f"{RESOURCES_PATH}green down right.png"),
+
+            "yellow_head": load_sp(f"{RESOURCES_PATH}yellow head.png"),
+            "yellow_straight": load_sp(f"{RESOURCES_PATH}yellow body straight.png"),
+            "yellow_tail": load_sp(f"{RESOURCES_PATH}yellow tail.png"),
+
+            "yellow_curve_up_left": load_sp(f"{RESOURCES_PATH}yellow up left.png"),
+            "yellow_curve_up_right": load_sp(f"{RESOURCES_PATH}yellow up right.png"),
+            "yellow_curve_down_left": load_sp(f"{RESOURCES_PATH}yellow down left.png"),
+            "yellow_curve_down_right": load_sp(f"{RESOURCES_PATH}yellow down right.png"),
+
             "apple_red": load_sp(f"{RESOURCES_PATH}red apple.png"),
             "apple_green": load_sp(f"{RESOURCES_PATH}green apple.png"),
             "apple_yellow": load_sp(f"{RESOURCES_PATH}yellow apple.png")
@@ -94,7 +114,8 @@ class SnakeEnv(gym.Env):
         super().reset(seed=seed)
         self.snake = [(random.randrange(GRID_WIDTH), random.randrange(GRID_HEIGHT))]
         self.direction = random.choice([(0, -1), (0, 1), (-1, 0), (1, 0)]) # UP, DOWN, LEFT, RIGHT
-        
+
+        self.current_snake_color = self._random_color()
         self.current_apple_type = self._random_apple()
         
         self._place_food()
@@ -104,8 +125,11 @@ class SnakeEnv(gym.Env):
         self.info = {}
         return self._get_obs(), self.info
     
+    def _random_color(self):
+        return random.choice(["red", "green", "yellow"])
+    
     def _random_apple(self):
-        return random.choice(["apple_red", "apple_green", "apple_yellow"])
+        return f"apple_{self._random_color()}"
 
     def _place_food(self):
         while True:
@@ -169,6 +193,7 @@ class SnakeEnv(gym.Env):
         if new_head == self.food:
             self.score += 1
             reward = self.reward_food
+            self.current_snake_color = self.current_apple_type.split("_")[1]
             self.current_apple_type = self._random_apple()
             self._place_food()
         else:
@@ -223,7 +248,7 @@ class SnakeEnv(gym.Env):
             # Head
             if i == 0:
                 angle = self._get_rotation_angle(self.direction)
-                rotated_head = pygame.transform.rotate(self.sprites["head"], angle)
+                rotated_head = pygame.transform.rotate(self.sprites[f"{self.current_snake_color}_head"], angle)
                 paint_surface.blit(rotated_head, screen_pos)
 
             # Tail
@@ -231,7 +256,7 @@ class SnakeEnv(gym.Env):
                 prev_x, prev_y = self.snake[i - 1]
                 tail_dir = (prev_x - x, prev_y - y)
                 angle = self._get_rotation_angle(tail_dir)
-                rotated_tail = pygame.transform.rotate(self.sprites["tail"], angle)
+                rotated_tail = pygame.transform.rotate(self.sprites[f"{self.current_snake_color}_tail"], angle)
                 paint_surface.blit(rotated_tail, screen_pos)
 
             # Body (straight or corner)
@@ -244,19 +269,19 @@ class SnakeEnv(gym.Env):
 
                 if to_prev[0] + to_next[0] == 0 and to_prev[1] + to_next[1] == 0:
                     angle = self._get_rotation_angle(to_next)
-                    rotated_straight = pygame.transform.rotate(self.sprites["straight"], angle)
+                    rotated_straight = pygame.transform.rotate(self.sprites[f"{self.current_snake_color}_straight"], angle)
                     paint_surface.blit(rotated_straight, screen_pos)
                 else:
                     combined = (to_prev[0] + to_next[0], to_prev[1] + to_next[1])
                     
                     if combined == (1, 1):
-                        paint_surface.blit(self.sprites["curve_down_right"], screen_pos)
+                        paint_surface.blit(self.sprites[f"{self.current_snake_color}_curve_down_right"], screen_pos)
                     elif combined == (-1, 1):
-                        paint_surface.blit(self.sprites["curve_down_left"], screen_pos)
+                        paint_surface.blit(self.sprites[f"{self.current_snake_color}_curve_down_left"], screen_pos)
                     elif combined == (1, -1):
-                        paint_surface.blit(self.sprites["curve_up_right"], screen_pos)
+                        paint_surface.blit(self.sprites[f"{self.current_snake_color}_curve_up_right"], screen_pos)
                     elif combined == (-1, -1):
-                        paint_surface.blit(self.sprites["curve_up_left"], screen_pos)
+                        paint_surface.blit(self.sprites[f"{self.current_snake_color}_curve_up_left"], screen_pos)
 
         img_array = pygame.surfarray.array3d(paint_surface)
         return np.transpose(img_array, (1, 0, 2))
