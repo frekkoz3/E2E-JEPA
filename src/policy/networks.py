@@ -57,7 +57,7 @@ class DQN(nn.Module):
         self.hidden_layers = nn.Sequential(*
             [
             nn.Sequential(nn.Linear(dim_hidden_layer[i], dim_hidden_layer[i+1]), nn.ReLU())
-            for i in range(num_hidden_layer)
+            for i in range(num_hidden_layer-1)
             ],
         )
         self.output = nn.Linear(dim_hidden_layer[-1], output_dim)
@@ -208,14 +208,7 @@ class AttentionDQN(nn.Module):
         self.attention_layers = nn.Sequential(*attention_blocks)
 
         # 2. Fully Connected Head
-        fc_blocks = []
-        # Input to the first FC layer is the (pooled) transformer output
         current_dim = input_dim
-        for i in range(num_fc_layer):
-            fc_blocks.append(nn.Linear(current_dim, dim_fc_layer[i]))
-            fc_blocks.append(nn.ReLU())
-            current_dim = dim_fc_layer[i]
-
         self.fc_layers = nn.Sequential(*
             [
                 nn.Sequential(
