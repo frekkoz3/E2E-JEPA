@@ -266,11 +266,11 @@ Think of a baby: he does not learn how the world works and *after* how to act in
 
 ### Related Work
 
-The paradigm shift toward active, end-to-end world modeling within joint-embedding spaces is a rapidly developing frontier.
+The paradigm shift toward active, end-to-end world modeling within joint-embedding spaces is a rapidly developing frontier. \
 Key contemporary frameworks exploring this axis include:
 
-* **TD-JEPA (Temporal Difference JEPA):** Integrates temporal-difference (TD) learning directly into the embedding space to align value estimation with predictive features.
-    To avoid the collapse of the model, they exploit two different pairs of teacher-student networks, acting as respectively as a target and an online network (same idea of Double DQN).
+* **TD-JEPA (Temporal Difference JEPA):** Integrates temporal-difference (TD) learning directly into the embedding space to align value estimation with predictive features. \
+    To avoid the collapse of the model, they exploit two different pairs of teacher-student networks, acting as respectively as a target and an online network (same idea of Double DQN). \
     The main difference with our approach is that we try to avoid this brilliant, yet redundant, double structure.
 * **ACT-JEPA (Action-Conditioned Transformer JEPA):** Focuses on explicit action-tokenization patterns inside the predictive backend to enforce behavioral alignment in latent spaces.
 
@@ -317,24 +317,24 @@ We try to, rather than removing the regularizer abruptly (which risks immediate 
 A core experimental branch of E2E-JEPA investigates the topological effects of backpropagating the prediction gradient through the policy head.
 
 * **Isolated Configuration (Stop-Gradient):** $\Pi_\psi$ updates exclusively through reward-driven TD-errors, maintaining independence from the world model's internal representation error.
-* **Coupled Configuration:** Flowing $\mathcal{L}_{\text{pred}}$ gradients directly into the policy parameters introduces a homeostatic inductive bias. The policy is implicitly penalized for choosing chaotic, unpredictable actions, inherently prioritizing trajectories where the world model's forward simulation maintains high certainty.
+* **Coupled Configuration:** Flowing $\mathcal{L}_{\text{pred}}$ gradients directly into the policy parameters introduces a homeostatic inductive bias. The policy is implicitly penalized for choosing chaotic, unpredictable actions, inherently prioritizing trajectories where the world model's forward simulation maintains high certainty. \
     This approach seems more intriguing and "realistic", but also raises questions about convergence and loss stability
 
 ### Considerations
 
-* We already know in advance that adding the policy learning will lead to a lot of instability, problems, and complications.
-* Policy brings computation requirements which were not requested before.
-* Policy brings a bunch of hyperparameters which must be set somehow.
-
-    In particular, the choice of the $\lambda_\Pi$ hyperparam governing the impact of the policy loss is key since it rescales the loss to something comparable with the prediction loss. It is reasonable to think to the policy loss $\mathcal{L}_\Pi$ to become increasingly relevant for the computation. Thus, instead of having decoupled weights, my (Enrico) suggestion is to set:
-
+- We already know in advance that adding the policy learning will lead to a lot of instability, problems, and complications.
+- Policy brings computation requirements which were not requested before.
+- Policy brings a bunch of hyperparameters which must be set somehow. \
+  In particular, the choice of the $\lambda_\Pi$ hyperparam governing the impact of the policy loss is key since it rescales the loss to something comparable with the prediction loss. \
+  It is reasonable to think to the policy loss $\mathcal{L}_\Pi$ to become increasingly relevant for the computation. Thus, instead of having decoupled weights, my (Enrico) suggestion is to set:
 $$
     \mathcal{L}_T = \alpha_t \mathcal{L}_{\mathcal{P}} + (1-\alpha_t) \cdot \lambda_\Pi \cdot \mathcal{L}_{\Pi} + \lambda_t \cdot \text{SIGReg(Z)}
 $$
-with $\alpha_t$ inverse function of the iteration, and $\lambda_\Pi$ a simple regularizer, e.g., set so that the mean of the previous $K$ $\mathcal{L}_{\mathcal{P}}$ has the same order of magnitude of the previous $K$ $\lambda_\Pi^- \mathcal{L}_{\Pi}$.
+    with $\alpha_t$ inverse function of the iteration, and $\lambda_\Pi$ a simple regularizer, e.g., set so that the mean of the previous $K$ $\mathcal{L}_{\mathcal{P}}$ has the same order of magnitude of the previous $K$ $\lambda_\Pi^- \mathcal{L}_{\Pi}$.
+- It is not clear to me (Enrico) the relevance of a *periodic* schedule for the regularization coefficient $\lambda_t$. Instead, we can schedule the weights as a function of the variance of the prediction errors, so to have higher regularization terms in case of big error spikes.
+- Give a glance to DeepMind Control Suite, especially for the Maze environment. They are standard in RL tasks.
 
-* It is not clear to me (Enrico) the relevance of a *periodic* schedule for the regularization coefficient $\lambda_t$. Instead, we can schedule the weights as a function of the variance of the prediction errors, so to have higher regularization terms in case of big error spikes.
-* Give a glance to DeepMind Control Suite, especially for the Maze environment. They are standard in RL tasks.
+
 
 ---
 
