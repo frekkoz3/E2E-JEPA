@@ -14,7 +14,7 @@ Finally, we will present our proposal for a new, stable, and end-to-end trainabl
     * [Generative Algorithms](#generative-algorithms)
   * [JEPA: the core ideas](#jepa-the-core-ideas)
   * [LeWorld Model](#leworld-model)
-  * [AV-JEPA](#av-jepa)
+  * [E2E-JEPA](#e2e-jepa)
   * [Main References](#main-references)
 <!-- TOC -->
 
@@ -247,22 +247,22 @@ To determine if the latent states captured actual physical characteristics, froz
 
 ---
 
-## AV-JEPA
+## E2E-JEPA
 
-Arcade-Videogame JEPA (AV-JEPA) is our framework.
+End-to-End JEPA (E2E-JEPA) is our framework.
 
 ### The Core Idea
 
-Current implementations of Joint-Embedding Predictive Architectures (JEPAs) operating in control environments suffer from a fundamental architectural decoupling. \
-Typically, the framework relies on a two-steps protocol: first, the visual encoder and the predictor are trained offline in a reward-free, action-passive environment; second, these modules are frozen, and a downstream policy optimizer exploits the static latent embeddings for action planning (e.g., via zero-order solvers like the Cross-Entropy Method). \
-This separation creates a barrier between representation learning and environmental interaction. \
-Biological entities do not passively construct complete, high-fidelity internal models of physics before executing motor control. 
-Instead, representations develop concurrently *through* active exploration, so that understanding environment dynamics is inherently tied to the actions used. \
+Current implementations of Joint-Embedding Predictive Architectures (JEPAs) operating in control environments suffer from a fundamental architectural decoupling.
+Typically, the framework relies on a two-steps protocol: first, the visual encoder and the predictor are trained offline in a reward-free, action-passive environment; second, these modules are frozen, and a downstream policy optimizer exploits the static latent embeddings for action planning (e.g., via zero-order solvers like the Cross-Entropy Method).
+This separation creates a barrier between representation learning and environmental interaction.
+Biological entities do not passively construct complete, high-fidelity internal models of physics before executing motor control.
+Instead, representations develop concurrently *through* active exploration, so that understanding environment dynamics is inherently tied to the actions used.
 Think of a baby: he does not learn how the world works and *after* how to act in it, but rather he learns how to move *while* understanding the world dynamics.
 
-**AV-JEPA (Active-Vision JEPA)** addresses this limitation by introducing a fully unified, end-to-end trainable framework that simultaneously optimizes state representation, dynamics prediction, and policy execution.
+**E2E-JEPA (End-to-End JEPA)** addresses this limitation by introducing a fully unified, end-to-end trainable framework that simultaneously optimizes state representation, dynamics prediction, and policy execution.
 
-![jepa-framework](imgs/AV-JEPA%20Framework.png)
+![jepa-framework](imgs/E2E-JEPA%20Framework.png)
 
 ### Related Work
 
@@ -276,13 +276,13 @@ Key contemporary frameworks exploring this axis include:
 
 ### Architectural Components
 
-AV-JEPA consists of three jointly optimized components:
+E2E-JEPA consists of three jointly optimized components:
 
 1. **The Encoder ($\mathcal{E}_\theta$):** Maps raw high-dimensional pixel observations $o_t$ into a low-dimensional latent state representation $z_t = \mathcal{E}_\theta(o_t)$. (Adopts the standard $\text{ViT-Tiny}$ backbone).
 2. **The Predictor ($\mathcal{P}_\phi$):** An action-conditioned causal transformer that autoregressively models environment transitions in the latent space: $\hat{z}_{t+1} = \mathcal{P}_\phi(z_{\le t}, a_t)$. Action conditioning is injected dynamically using Adaptive Layer Normalization (`AdaLN-Zero`).
 3. **The Policy Head ($\Pi_\psi$):** An active control module modeled as a Deep Q-Network (DQN) with an $\varepsilon$-greedy exploration strategy. $\Pi_\psi$ maps either the current embedding $z_t$ (or an imagined short-horizon rollout sequence $\hat{z}_{t:t+H}$) to discrete action spaces.
 
-Consider that AV-JEPA aims to work in arcade-videogame like environments, where rewards are easy to model.
+Consider that E2E-JEPA aims to work in arcade-videogame like environments, where rewards are easy to model.
 
 ### Optimization Objectives
 
@@ -298,7 +298,7 @@ Where:
 
 ### Main Experimental Details
 
-While developing the AV-Jepa we had some novels idea that we decided to explore. Here the main ones:
+While developing the E2E-JEPA we had some novels idea that we decided to explore. Here the main ones:
 
 #### Phase-Based Exploration (Temperature Scheduling)
 
@@ -314,7 +314,7 @@ We try to, rather than removing the regularizer abruptly (which risks immediate 
 
 #### Gradient Isolation vs. End-to-End Coupling
 
-A core experimental branch of AV-JEPA investigates the topological effects of backpropagating the prediction gradient through the policy head.
+A core experimental branch of E2E-JEPA investigates the topological effects of backpropagating the prediction gradient through the policy head.
 
 * **Isolated Configuration (Stop-Gradient):** $\Pi_\psi$ updates exclusively through reward-driven TD-errors, maintaining independence from the world model's internal representation error.
 * **Coupled Configuration:** Flowing $\mathcal{L}_{\text{pred}}$ gradients directly into the policy parameters introduces a homeostatic inductive bias. The policy is implicitly penalized for choosing chaotic, unpredictable actions, inherently prioritizing trajectories where the world model's forward simulation maintains high certainty.
