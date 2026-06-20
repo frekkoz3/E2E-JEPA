@@ -1,8 +1,8 @@
-torch>=1.13.0,<2.2.0
-numpy>=1.21.0,<2.0.0
-PyYAML>=6.0
-cloudpickle>=2.0.0
-gymnasium>=0.28.1,<1.0.0
-opencv-python>=4.8.0
+torch>=2.2.0
+numpy>=1.26.0,<2.0.0
+PyYAML>=6.0.1
+cloudpickle>=3.0.0
+gymnasium>=0.29.1,<1.0.0
+opencv-python>=4.9.0
 pygame>=2.6.0
-typing_extensions>=4.5.0
+typing_extensions>=4.8.0
