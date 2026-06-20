@@ -67,4 +67,4 @@ save:
   save_path: "./src/policy/models/conv-ppo/"
 
 pretrain:
-#  model_path : "./src/policy/models/conv-ppo/ep_101-1000.pth"
+  model_path : "./src/policy/models/conv-ppo/ep_101-1000.pth"
