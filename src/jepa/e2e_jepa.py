@@ -16,7 +16,8 @@ from typing import Dict, Any, Tuple
 class OnlineTrajectoryBuffer:
     """Stores online transitions and serves randomized mini-batches 
     to break temporal correlation during joint optimization."""
-    def __init__(self, capacity: int = 50000):
+    def __init__(self, capacity: int = 4096):
+        self.capacity = capacity
         self.buffer = deque(maxlen=capacity)
 
     def push(self, x_t, a_t, r_t, x_tp1, done):
@@ -34,6 +35,9 @@ class OnlineTrajectoryBuffer:
             torch.stack(x_tp1),
             torch.tensor(done, dtype=torch.float32).unsqueeze(-1)
         )
+
+    def refresh(self):
+        self.buffer = deque(maxlen=self.capacity)
 
     def __len__(self):
         return len(self.buffer)

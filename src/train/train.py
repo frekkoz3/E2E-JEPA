@@ -11,9 +11,10 @@ from src.game.snake import SnakeEnv
 from src.jepa.e2e_jepa import *
 
 TOTAL_EPOCHS = 20000
-STEPS_PER_EPOCH = 128
+STEPS_PER_EPOCH = 256
 BATCH_SIZE = 32
 ACTION_DIM = 4
+REFRESH_BUFFER = 8
 
 if __name__ == '__main__':
     
@@ -28,6 +29,9 @@ if __name__ == '__main__':
     x_t, _ = env.reset()
     
     for epoch in range(TOTAL_EPOCHS):
+        if epoch % REFRESH_BUFFER == 0:
+            trainer.register_buffer.refresh()
+            
         for step in range(STEPS_PER_EPOCH):
             
             # Choose action actively using current model state
