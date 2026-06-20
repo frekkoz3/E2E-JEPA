@@ -309,7 +309,7 @@ class Policy:
 
     def load_network(self, path : str):
         """Loads the model parameters from the specified path."""
-        self.network.load_state_dict(torch.load(path))
+        self.network.load_state_dict(torch.load(path, map_location=self.device))
 
 
     def forward(self, state):
