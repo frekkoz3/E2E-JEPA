@@ -29,7 +29,7 @@ echo "Working directory set to: $(pwd)"
 # 1. Activate or Create the virtual environment
 if [ ! -d ".venv" ]; then
     echo "Virtual environment not found. Creating .venv..."
-    python3 -m virtualenv --python="Python-3.12.0/python" .venv
+    ~/Python-3.12.0/python -m venv .venv
     source .venv/bin/activate
 
     python -m ensurepip --upgrade --default-pip
