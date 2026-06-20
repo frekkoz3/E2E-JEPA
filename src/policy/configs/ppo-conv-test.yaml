@@ -4,9 +4,9 @@ environment:
   difficulty : 2
   observation_type : "grid"
   n_actions : 4
-  reward_food: 50
+  reward_food: 1000
   reward_death: -50
-  reward_step: -0.1
+  reward_step: 0.0
 
 policy:
   network : "ConvPPO"
@@ -67,4 +67,4 @@ save:
   save_path: "./src/policy/models/conv-ppo/"
 
 pretrain:
-  model_path : "./src/policy/models/conv-ppo/_final.pth"
+  model_path : "./src/policy/models/conv-ppo/ep_301-1000.pth"

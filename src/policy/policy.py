@@ -12,6 +12,8 @@ The file implements a class Policy that takes care of
 - applying epsilon-greedy scheduling
 - more
 """
+from collections import deque
+
 import yaml
 import argparse
 
@@ -325,6 +327,8 @@ class Policy:
         """Runs a rollout in the environment, given an initial state"""
         states, actions, rewards, values, log_probs, dones = [], [], [], [], [], []
 
+        state_buffer = deque(maxlen=4)
+
         # Deal with batch dimensions
         # Final shape: [batch_size, channel, pixels]
         state = torch.tensor(state, dtype=torch.float32, device=self.device)
@@ -335,9 +339,13 @@ class Policy:
         if state.dim() == 2: # Require a batch dimension
             state = state.unsqueeze(1)
 
+        for _ in range(4):
+            state_buffer.append(state)
+
         # Rollout loop
         for step in range(self.horizon):
 
+            state = torch.stack(list(state_buffer), dim=1) if isinstance(self.network, AttentionPPO) else state_buffer[-1].unsqueeze(1)
             distribution, value = self.network(state)
             action = distribution.sample()
             log_prob = distribution.log_prob(action)
@@ -363,6 +371,10 @@ class Policy:
             if state.dim() == 2: # Require a batch dimension
                 state = state.unsqueeze(1)
 
+            if stop:
+                for _ in range(4):
+                    state_buffer.append(state)
+
 
 
         states = torch.cat(states, dim=0)
@@ -373,6 +385,7 @@ class Policy:
         log_probs = torch.cat(log_probs, dim=0)
 
         # Value of final state for GAE bootstrapping
+        state = torch.stack(list(state_buffer), dim=1) if isinstance(self.network, AttentionPPO) else state_buffer[-1].unsqueeze(1)
         _, last_value = self.network(state)
         values = torch.cat((values, last_value.squeeze(-1)), dim=0)
 

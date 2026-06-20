@@ -6,7 +6,7 @@ environment:
   n_actions : 4
   reward_food: 50
   reward_death: -50
-  reward_step: -0.1
+  reward_step: 0.0
 
 policy:
   network : "ConvPPO"
@@ -52,14 +52,14 @@ policy-loss:
   gae_coeff : 0.95
 
 training:
-  device : "cuda"
+  device : "cpu"
   optimizer : "Adam"
-  lr_init : 0.1
+  lr_init : 0.01
   lr_scheduler : "StepLR"
   lr_step_size : 10
   lr_gamma : 0.05
   n_epochs : 5
-  n_episodes : 10000
+  n_episodes : 1000
 
 save:
   checkpoint: 100

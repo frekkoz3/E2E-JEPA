@@ -331,6 +331,7 @@ class AttentionPPO(nn.Module):
     def __init__(self,
                  input_dim: int,
                  output_dim : int,
+                 dim_stack : int,
                  num_attention_layer : int,
                  attention_layer_params : list[dict],
                  num_fc_layer : int,
@@ -364,6 +365,9 @@ class AttentionPPO(nn.Module):
         assert len(dim_fc_layer) == num_fc_layer, \
             (f"The number of fully connected layer dimensions ({len(dim_fc_layer)}) "
              f"must match the number of fully connected layers ({num_fc_layer}).")
+
+        self.positional_encoding = nn.Parameter(torch.zeros(1, dim_stack, input_dim))
+        nn.init.normal_(self.positional_encoding, std=0.02)
 
         # Transformer Encoder layers.
         attention_blocks = []
@@ -403,9 +407,13 @@ class AttentionPPO(nn.Module):
         Forward pass through the network.
         state shape: [batch_size, sequence_length, input_dim]
         """
-        state = self.attention_layers(state)         # shape: [batch_size, sequence_length, input_dim]
-        # Global Average Pooling
-        state = state.mean(dim=1)                    # shape: [batch_size, input_dim]
+        state += self.positional_encoding[:, :state.size(1), :]
+
+        state = self.attention_layers(state)
+
+        # Extract last temporal step (the present frame)
+        state = state[:, -1, :]
+
         state = self.fc_layers(state)
 
         logits = self.actor_head(state)
