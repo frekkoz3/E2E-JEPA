@@ -317,6 +317,54 @@ class Policy:
         self.q_values = self.network(state)
         return self.q_values
 
+    @torch.no_grad()
+    def _get_rollout(self, state):
+        """Runs a rollout in the environment, given an initial state"""
+        states = torch.empty((0, *state.shape), dtype=torch.float32, device=self.device)
+        actions = torch.empty((0,), dtype=torch.int64, device=self.device)
+        rewards = torch.empty((0,), dtype=torch.float32, device=self.device)
+        values = torch.empty((0,), dtype=torch.float32, device=self.device)
+        dones = torch.empty((0,), dtype=torch.float32, device=self.device)
+        log_probs = torch.empty((0,), dtype=torch.float32, device=self.device)
+
+        for step in range(self.horizon):
+
+            # Deal with batch dimensions
+            # Final shape: [batch_size, channel, pixels]
+            state = torch.tensor(state, dtype=torch.float32, device=self.device)
+            if state.shape == (20, 20):
+                state = state.flatten()
+            if state.dim() == 1:
+                state = state.unsqueeze(0)
+            if state.dim() == 2: # Require a batch dimension
+                state = state.unsqueeze(1)
+
+            # Rollout
+            distribution, value = self.network(state)
+            action = distribution.sample()
+            log_prob = distribution.log_prob(action)
+            next_state, reward, done, truncated, _ = self.environment.step(action.item())
+            reward = torch.tensor([reward], dtype=torch.float32, device=self.device)
+            stop = done or truncated
+            stop_t = torch.tensor([stop], dtype=torch.float32, device=self.device)
+
+            states = torch.cat((states, state), dim=0)
+            actions = torch.cat((actions, action), dim=0)
+            rewards = torch.cat((rewards, reward), dim=0)
+            values = torch.cat((values, value.squeeze(-1)), dim=0)
+            dones = torch.cat((dones, stop_t), dim=0)
+            log_probs = torch.cat((log_probs, log_prob), dim=0)
+
+            state = next_state
+            if stop:
+                state, _ = self.environment.reset()
+
+        # last state value for GAE:
+        _, last_value = self.network(states[-1])
+        values = torch.cat((values, last_value.squeeze(-1).unsqueeze(0)), dim=0)
+
+        return states, actions, rewards, values, log_probs, dones
+
 
     def train(self, batch_or_state):
         """
@@ -377,81 +425,22 @@ class Policy:
         return {"loss": td_loss.item(), "mean_q": current_q.mean().item()}
 
 
-    def _train_on_policy(self, start_state):
+    def _train_on_policy(self, init_state):
         """PPO/A2C Optimization via Trajectory Rollout and GAE."""
-        states, actions, rewards, values, log_probs, dones = [], [], [], [], [], []
-        state = start_state
 
-        # 1. Trajectory Rollout (Data Collection)
-        for _ in range(self.horizon):
-            state_tensor = torch.tensor(state, dtype=torch.float32, device=self.device)
+        # Compute rollout
+        states, actions, rewards, values, log_probs, dones = self._get_rollout(state = init_state)
 
-            # Format shape: Flatten and add Batch/Channel dimensions
-            if state_tensor.shape == (20, 20):
-                state_tensor = state_tensor.flatten()
-            if state_tensor.dim() == 1:
-                state_tensor = state_tensor.unsqueeze(0)
-            if isinstance(self.network, (ConvPPO, AttentionPPO)) and state_tensor.dim() == 2:
-                state_tensor = state_tensor.unsqueeze(1)
-
-            with torch.no_grad():
-                dist, value = self.network(state_tensor)
-                action = dist.sample()
-                log_prob = dist.log_prob(action)
-
-            next_state, reward, done, truncated, _ = self.environment.step(action.item())
-
-            states.append(state_tensor)
-            actions.append(action)
-            rewards.append(reward)
-            values.append(value.squeeze(-1))
-            log_probs.append(log_prob)
-            dones.append(done or truncated)
-
-            state = next_state
-            if done or truncated:
-                state, _ = self.environment.reset()
-
-        # Concatenate history
-        states = torch.cat(states)
-        actions = torch.tensor(actions, dtype=torch.int64, device=self.device)
-        rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
-        values = torch.cat(values)
-        log_probs = torch.cat(log_probs)
-        dones = torch.tensor(dones, dtype=torch.float32, device=self.device)
-
-        # 2. Generalized Advantage Estimation (GAE)
-        with torch.no_grad():
-            last_state_tensor = torch.tensor(state, dtype=torch.float32, device=self.device)
-
-            # Format shape: Flatten and add Batch/Channel dimensions
-            if last_state_tensor.shape == (20, 20):
-                last_state_tensor = last_state_tensor.flatten()
-            if last_state_tensor.dim() == 1:
-                last_state_tensor = last_state_tensor.unsqueeze(0)
-            if isinstance(self.network, (ConvPPO, AttentionPPO)) and last_state_tensor.dim() == 2:
-                last_state_tensor = last_state_tensor.unsqueeze(1)
-
-            _, last_value = self.network(last_state_tensor)
-            last_value = last_value.squeeze(-1)
-
-        returns = torch.zeros_like(rewards)
-        gae = 0
-        lam = 0.95
-        for t in reversed(range(self.horizon)):
-            if t == self.horizon - 1:
-                next_non_terminal = 1.0 - dones[t]
-                next_val = last_value
-            else:
-                next_non_terminal = 1.0 - dones[t]
-                next_val = values[t+1]
-
-            delta = rewards[t] + self.reward_discount * next_val * next_non_terminal - values[t]
-            gae = delta + self.reward_discount * lam * next_non_terminal * gae
-            returns[t] = gae + values[t]
+        # Compute advantages and returns
+        returns, advantage = self.loss.compute_advantages(last_state_value = values[-1],
+                                                          rewards = rewards,
+                                                          values = values,
+                                                          dones = dones)
 
         # 3. Optimization Epochs
-        epochs = self.n_epochs if isinstance(self.loss, PPOLoss) else 1 # PPO reuses data; A2C strictly steps once
+        # PPO: # epochs = self.n_epochs
+        # A2C: # epochs = 1
+        epochs = self.n_epochs if isinstance(self.loss, PPOLoss) else 1
         total_loss_history = []
 
         for _ in range(epochs):
