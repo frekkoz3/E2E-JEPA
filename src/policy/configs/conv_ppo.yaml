@@ -4,13 +4,13 @@ environment:
   difficulty : 2
   observation_type : "grid"
   n_actions : 4
-  reward_food: 20
-  reward_death: -5
-  reward_step: -0.5
+  reward_food: 50
+  reward_death: -50
+  reward_step: -0.1
 
 policy:
   network : "ConvPPO"
-  horizon : 256
+  horizon : 64
   reward_discount : 0.995
   epsilon_strategy : "EpsilonConstant"
   epsilon_start : 1.0
@@ -20,19 +20,30 @@ policy:
 policy-network:
   input_dim : 400
   output_dim : 4
-  num_conv_layer : 2
+  num_conv_layer : 4
   conv_layer_params : [{
-    "out_channels" : 4,
-    "kernel_size" : 3,
+    "out_channels" : 32,
+    "kernel_size" : 16,
     "stride" : 1
-  },
+    },
+    {
+      "out_channels" : 16,
+      "kernel_size" : 8,
+      "stride" : 1
+    },
+    {
+      "out_channels": 8,
+      "kernel_size": 4,
+      "stride": 1
+    },
     {
       "out_channels" : 8,
       "kernel_size" : 3,
       "stride" : 1
     }]
   num_fc_layer : 3
-  dim_fc_layer : [3168, 128, 32]
+  dim_fc_layer : [2984, 128, 32]
+  mini_batch_size: 8
 
 policy-loss:
   loss : "PPOLoss"
@@ -49,6 +60,11 @@ training:
   lr_gamma : 0.05
   n_epochs : 5
   n_episodes : 1000
+
+save:
+  checkpoint: 50
+  save_model: True
+  save_path: "./src/policy/models/attention-ppo/"
 
 pretrain:
 # network_model_path : "PUT-HERE-SOME-PATH.PT"

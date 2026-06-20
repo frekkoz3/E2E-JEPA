@@ -4,9 +4,9 @@ env:
   difficulty : 2
   observation_type : "grid"
   n_actions : 4
-  reward_food: 20
-  reward_death: -1
-  reward_step: -0.05
+  reward_food: 50
+  reward_death: -50
+  reward_step: -0.1
 
 policy:
   network : "AttentionPPO"
@@ -28,6 +28,7 @@ policy-network:
                             ]
   num_fc_layer : 4
   dim_fc_layer : [16, 128, 32, 8]
+  mini_batch_size : 8
 
 policy-loss:
   loss : "PPOLoss"
@@ -49,7 +50,7 @@ training:
 save:
   checkpoint : 50
   save_model : True
-  save_path : "./src/policy/models/"
+  save_path : "./src/policy/models/attention-ppo/"
 
 pretrain:
-# model_path : "PUT-HERE-SOME-PATH.PT"
+  # model_path : "./src/policy/models/attention-ppo/ep_151-1000.pth"

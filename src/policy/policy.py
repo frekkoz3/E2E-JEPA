@@ -94,6 +94,7 @@ class Policy:
         self.network = None
         self.epsilon_strategy = None
         self.horizon = horizon
+        self.mini_batch_size = kwargs.get("mini_batch_size", 8)
         self.reward_discount = reward_discount
 
         # Training attributes
@@ -455,22 +456,38 @@ class Policy:
         epochs = self.n_epochs if isinstance(self.loss, PPOLoss) else 1
         total_loss_history = []
 
+        batch_size = states.size(0)
+
         for _ in range(epochs):
+            indices = torch.randperm(batch_size, device=self.device)
+
+            for start in range(0, batch_size, self.mini_batch_size):
+                end = start + self.mini_batch_size
+                batch_indices = indices[start:end]
+
+                states_batch = states[batch_indices]
+                actions_batch = actions[batch_indices]
+                returns_batch = returns[batch_indices]
+                advantages_batch = advantages[batch_indices]
+                log_probs_batch = log_probs[batch_indices]
+
+                distribution, new_values = self.network(states_batch)
+
+                # Branch based on loss function signature
+                loss = self.loss.compute(dist = distribution,
+                                         values = new_values,
+                                         actions = actions_batch,
+                                         returns = returns_batch,
+                                         advantages = advantages_batch,
+                                         old_log_probs = log_probs_batch.detach())
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=0.5)
+                self.optimizer.step()
+                total_loss_history.append(loss.item())
+
             distribution, new_values = self.network(states)
-
-            # Branch based on loss function signature
-            loss = self.loss.compute(dist = distribution,
-                                     values = new_values,
-                                     actions = actions,
-                                     returns = returns,
-                                     advantages = advantages,
-                                     old_log_probs = log_probs.detach())
-
-            self.optimizer.zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=0.5)
-            self.optimizer.step()
-            total_loss_history.append(loss.item())
 
         if self.scheduler:
             self.scheduler.step() # Note: Step scheduler per rollout, not per environment frame
@@ -501,6 +518,7 @@ def main(config_path, train_flag):
         save_model = config.get("save_model", False)
         checkpoint = config.get("checkpoint", 10)
         folder_path = config.get("save_path", f"./src/policy/models/")
+
         for episode in range(n_episodes):
             print(f"Episode {episode + 1}/{config.get('n_episodes', 100)}")
             state = policy.environment.reset()[0]
