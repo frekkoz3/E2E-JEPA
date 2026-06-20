@@ -75,8 +75,10 @@ class ActiveE2EJEPATrainer:
         # SIGReg projections base vector
         self.register_buffer("u_m", F.normalize(torch.randn(latent_dim, 32), p=2, dim=0))
 
+
     def register_buffer(self, name, tensor):
         setattr(self, name, tensor)
+
 
     def get_action(self, x_t: torch.Tensor, epoch: int, total_epochs: int) -> int:
         """Phase-Based Exploration: Generates actions on live frames."""

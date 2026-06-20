@@ -21,6 +21,8 @@ import torch
 from src.policy.algorithms import *
 from src.game.snake import *
 from src.policy.losses import *
+from src.utils.utils import *
+
 
 
 class EpsilonGreedy:
@@ -104,8 +106,8 @@ class Policy:
         # Set architecture
         self.set_environment(environment, **kwargs)
         self.set_network(network, **kwargs)
-        if kwargs.get("load_network_path"):
-            self.load_network(path = str(kwargs.get("load_network_path")))
+        if kwargs.get("model_path"):
+            self.load_network(path = str(kwargs.get("model_path")))
         if self.device != "cpu":
             self.network.to(self.device)
         self.set_epsilon_strategy(epsilon_strategy, **kwargs)
@@ -476,19 +478,14 @@ class Policy:
         return {"loss": np.mean(total_loss_history), "mean_reward": rewards.mean().item()}
 
 
+
 def main(config_path, train_flag):
 
     with open(config_path, 'r') as f:
-        nested_config = yaml.safe_load(f)
+        config = yaml.safe_load(f)
 
     # Flatten the nested dictionary manually
-    config = {}
-    for section, params in nested_config.items():
-        if isinstance(params, dict):
-            for key, value in params.items():
-                config[key] = value
-        else:
-            config[section] = params
+    config = flat_config(config)
 
     # Initialize Policy
     policy = Policy(**config)
@@ -500,7 +497,11 @@ def main(config_path, train_flag):
 
     if train_flag:
         print("Starting training...")
-        for episode in range(config.get("n_episodes", 100)):
+        n_episodes = config.get("n_episodes", 100)
+        save_model = config.get("save_model", False)
+        checkpoint = config.get("checkpoint", 10)
+        folder_path = config.get("save_path", f"./src/policy/models/")
+        for episode in range(n_episodes):
             print(f"Episode {episode + 1}/{config.get('n_episodes', 100)}")
             state = policy.environment.reset()[0]
             done = False
@@ -508,6 +509,10 @@ def main(config_path, train_flag):
             # Policy Training Loop
             if isinstance(policy.network, (ConvPPO, AttentionPPO)):
                 policy.train(state)
+
+                if save_model and episode % checkpoint == 0:
+                    policy.save_network(path=f"{folder_path}ep_{episode+1}-{n_episodes}.pth")
+
             else:
                 # For DQN, we need a replay buffer.
                 buffer = []
@@ -528,6 +533,8 @@ def main(config_path, train_flag):
 
                 policy.train(batch)
 
+        if config.get("save_model", False):
+            policy.save_network(path=f"{folder_path}_final.pth")
 
 
 
