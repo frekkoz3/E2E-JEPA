@@ -14,8 +14,12 @@ class MSELoss(nn.MSELoss):
 class A2CLoss:
     """Common Advantage-Actor Critic Loss"""
 
-    def __init__(self, **kwargs):
-        pass
+    def __init__(self,
+                 actor_coef : float | int = 0.01,
+                 critic_coef : int | float = 0.5,
+                 **kwargs):
+        self.actor_coef = actor_coef
+        self.critic_coef = critic_coef
 
 
     def compute(self,
@@ -23,10 +27,8 @@ class A2CLoss:
                 values,
                 actions,
                 returns,
-                entropy_coef=0.01,
-                critic_coef=0.5,
                 **kwargs):
-        """Compute the PPO loss given the distribution, values, actions, and returns."""
+        """Compute the A2C loss given the distribution, values, actions, and returns."""
         values = values.squeeze(-1)
 
         # 2. Compute Advantage (Returns - Baseline Value)
@@ -41,7 +43,7 @@ class A2CLoss:
         critic_loss = F.mse_loss(values, returns)
 
         # Total Loss (Minimize actor loss, minimize critic error, maximize entropy)
-        total_loss = actor_loss + (critic_coef * critic_loss) - (entropy_coef * entropy)
+        total_loss = actor_loss + (self.critic_coef * critic_loss) - (self.actor_coef * entropy)
 
         return total_loss
 
@@ -50,8 +52,14 @@ class A2CLoss:
 class PPOLoss:
     """Common PPO Loss"""
 
-    def __init__(self, **kwargs):
-        pass
+    def __init__(self,
+                 actor_coef : float | int = 0.01,
+                 critic_coef : float | int  = 0.5,
+                 clip_ratio : float | int = 0.2,
+                 **kwargs):
+        self.actor_coef = actor_coef
+        self.critic_coef = critic_coef
+        self.clip_ratio = clip_ratio
 
 
     def compute(self,
@@ -60,9 +68,6 @@ class PPOLoss:
                 actions,
                 returns,
                 old_log_probs,
-                clip_ratio=0.2,
-                entropy_coef=0.01,
-                critic_coef=0.5,
                 **kwargs):
         """Compute the PPO loss given the distribution, values, returns, and old log probabilities."""
         values = values.squeeze(-1)
@@ -78,7 +83,7 @@ class PPOLoss:
 
         # 4. Compute Clipped Surrogate Objective
         surrogate_1 = ratio * advantages
-        surrogate_2 = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * advantages
+        surrogate_2 = torch.clamp(ratio, 1.0 - self.clip_ratio, 1.0 + self.clip_ratio) * advantages
 
         # PPO Actor loss is the negative minimum of the two surrogates
         actor_loss = -torch.min(surrogate_1, surrogate_2).mean()
@@ -88,6 +93,6 @@ class PPOLoss:
         entropy = dist.entropy().mean()
 
         # Total Loss
-        total_loss = actor_loss + (critic_coef * critic_loss) - (entropy_coef * entropy)
+        total_loss = actor_loss + (self.critic_coef * critic_loss) - (self.actor_coef * entropy)
 
         return total_loss

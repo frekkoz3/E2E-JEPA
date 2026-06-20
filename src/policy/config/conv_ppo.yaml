@@ -17,7 +17,7 @@ policy:
   epsilon_end : 0.
   epsilon_coeff : 0.99
 
-network:
+policy-network:
   input_dim : 400
   output_dim : 4
   num_conv_layer : 2
@@ -34,6 +34,11 @@ network:
   num_fc_layer : 3
   dim_fc_layer : [3168, 128, 32]
 
+policy-loss:
+  loss : "PPOLoss"
+  actor_coef : 0.01
+  critic_coef : 0.5
+
 training:
   device : "cpu"
   optimizer : "Adam"
@@ -41,7 +46,6 @@ training:
   lr_scheduler : "StepLR"
   lr_step_size : 10
   lr_gamma : 0.05
-  loss : "PPOLoss"
   n_epochs : 5
   n_episodes : 1000
 

@@ -11,17 +11,20 @@ environment:
 policy:
   network : "DQN"
   horizon : 1
-  discount : 0.995
+  reward_discount : 0.995
   epsilon_strategy : "EpsilonGreedy"
   epsilon_start : 1.0
   epsilon_end : 0.
   epsilon_coeff : 0.999
 
-network:
+policy-network:
   input_dim : 400
   output_dim : 4
   num_hidden_layer : 2
   dim_hidden_layer : [16, 32]
+
+policy-loss:
+  loss : "MSELoss"
 
 training:
   device : "cpu"
@@ -30,7 +33,6 @@ training:
   lr_scheduler : "StepLR"
   lr_step_size : 10
   lr_gamma : 0.05
-  loss : "MSELoss"
   n_epochs: 5
   n_episodes: 100
 

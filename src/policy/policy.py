@@ -15,6 +15,7 @@ The file implements a class Policy that takes care of
 import yaml
 import argparse
 
+import numpy as np
 import torch
 
 from src.policy.algorithms import *
@@ -271,7 +272,7 @@ class Policy:
         if state_tensor.dim() == 1:
             state_tensor = state_tensor.unsqueeze(0)
 
-        # 3. Add Channel dimension specifically for Convolutional Networks -> (1, 1, 400)
+        # 3. Add Channel dimension specifically for Convolutional and Attention Networks -> (1, 1, 400)
         if isinstance(self.network, (ConvDQN, ConvPPO, AttentionDQN, AttentionPPO)) and state_tensor.dim() == 2:
             state_tensor = state_tensor.unsqueeze(1)
 
@@ -436,7 +437,7 @@ class Policy:
 
         returns = torch.zeros_like(rewards)
         gae = 0
-        lam = 0.95 # GAE lambda parameter
+        lam = 0.95
         for t in reversed(range(self.horizon)):
             if t == self.horizon - 1:
                 next_non_terminal = 1.0 - dones[t]
