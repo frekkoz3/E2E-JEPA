@@ -37,7 +37,7 @@ policy-loss:
   gae_coeff : 0.95
 
 training:
-  device : "cpu"
+  device : "cuda"
   optimizer : "Adam"
   lr_init : 0.001
   lr_scheduler : "StepLR"
