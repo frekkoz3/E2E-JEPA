@@ -1,0 +1,70 @@
+environment:
+  environment : "Snake"
+  render_mode : "human"
+  difficulty : 2
+  observation_type : "grid"
+  n_actions : 4
+  reward_food: 50
+  reward_death: -50
+  reward_step: -0.1
+
+policy:
+  network : "ConvPPO"
+  horizon : 64
+  reward_discount : 0.995
+  epsilon_strategy : "EpsilonConstant"
+  epsilon_start : 1.0
+  epsilon_end : 0.
+  epsilon_coeff : 0.99
+
+policy-network:
+  input_dim : 400
+  output_dim : 4
+  num_conv_layer : 4
+  conv_layer_params : [{
+    "out_channels" : 32,
+    "kernel_size" : 16,
+    "stride" : 1
+    },
+    {
+      "out_channels" : 16,
+      "kernel_size" : 8,
+      "stride" : 1
+    },
+    {
+      "out_channels": 8,
+      "kernel_size": 4,
+      "stride": 1
+    },
+    {
+      "out_channels" : 8,
+      "kernel_size" : 3,
+      "stride" : 1
+    }]
+  num_fc_layer : 3
+  dim_fc_layer : [2984, 128, 32]
+  mini_batch_size: 8
+
+policy-loss:
+  loss : "PPOLoss"
+  actor_coeff : 0.01
+  critic_coeff : 0.5
+  gae_coeff : 0.95
+
+training:
+  device : "cpu"
+  optimizer : "Adam"
+  lr_init : 0.001
+  lr_scheduler : "StepLR"
+  lr_step_size : 10
+  lr_gamma : 0.05
+  n_epochs : 5
+  n_episodes : 1000
+
+save:
+  checkpoint: 50
+  save_model: True
+  save_path: "./src/policy/models/conv-ppo/"
+
+pretrain:
+#  model_path : "./src/policy/models/conv-ppo/ep_101-1000.pth"

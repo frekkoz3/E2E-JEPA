@@ -1,6 +1,6 @@
 environment:
   environment : "Snake"
-  render_mode : "rgb_array"
+  render_mode : "human"
   difficulty : 2
   observation_type : "grid"
   n_actions : 4
@@ -64,7 +64,7 @@ training:
 save:
   checkpoint: 50
   save_model: True
-  save_path: "./src/policy/models/attention-ppo/"
+  save_path: "./src/policy/models/conv-ppo/"
 
 pretrain:
-# network_model_path : "PUT-HERE-SOME-PATH.PT"
+#  model_path : "./src/policy/models/conv-ppo/ep_101-1000.pth"
