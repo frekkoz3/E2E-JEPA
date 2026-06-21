@@ -432,28 +432,43 @@ class SnakeEnv(gym.Env):
             self.window = None
             self.canvas = None
 
+import argparse
 
 if __name__ == "__main__":
 
-    difficulty = 3
-    registration = False
-    obs_mode = "image"
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--difficulty", type=int, default=3)
+    parser.add_argument("--registration", action="store_true")
+    parser.add_argument("--obs_mode", type=str, default="image")
+    parser.add_argument("--render_mode", type=str, default="human")
+    parser.add_argument("--max_step", type=int, default=500)
+
+    args = parser.parse_args()
+
+    difficulty = args.difficulty
+    registration = args.registration
+    obs_mode = args.obs_mode
+    render_mode = args.render_mode
+    max_step = args.max_step
 
     if registration:
         import cv2
 
         video = cv2.VideoWriter(
-        f"video/game_difficulty_{difficulty}.mp4",
-        cv2.VideoWriter_fourcc(*"mp4v"),
-        FPS,
-        (WIDTH, TOTAL_HEIGHT)
+            f"video/game_difficulty_{difficulty}.mp4",
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            FPS,
+            (WIDTH, TOTAL_HEIGHT)
         )
 
-    # Usage with human interface and difficulty set to 3
-    env = SnakeEnv(render_mode="human",
-                   observation_type=obs_mode,
-                   difficulty=difficulty,
-                   max_step=500)
+    env = SnakeEnv(
+        render_mode=render_mode,
+        observation_type=obs_mode,
+        difficulty=difficulty,
+        max_step=max_step
+    )
+
     obs, info = env.reset()
 
     if registration:
@@ -463,14 +478,20 @@ if __name__ == "__main__":
     done = False
     trunc = False
     current_action = 0
+
     while not done and not trunc:
+
         if env.window is not None:
             for event in pygame.event.get(pygame.KEYDOWN):
-                if event.key == pygame.K_w: current_action = 0
-                elif event.key == pygame.K_s: current_action = 1
-                elif event.key == pygame.K_a: current_action = 2
-                elif event.key == pygame.K_d: current_action = 3
-        
+                if event.key == pygame.K_w:
+                    current_action = 0
+                elif event.key == pygame.K_s:
+                    current_action = 1
+                elif event.key == pygame.K_a:
+                    current_action = 2
+                elif event.key == pygame.K_d:
+                    current_action = 3
+
         obs, rew, done, trunc, info = env.step(current_action)
 
         if registration:
@@ -479,6 +500,7 @@ if __name__ == "__main__":
 
         if not env.render():
             break
+
     env.close()
 
     if registration:
