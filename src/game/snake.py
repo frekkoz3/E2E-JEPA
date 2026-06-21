@@ -5,12 +5,15 @@ r"""
  | |___ / __/| |__|_____| |_| | |___|  __/ ___ \ 
  |_____|_____|_____|     \___/|_____|_| /_/   \_\
 """
+import os # needed for hpc cluster 
+os.environ["SDL_AUDIODRIVER"] = "dummy"
+os.environ["XDG_RUNTIME_DIR"] = "/tmp"
+
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 import pygame
 import random
-import os
 
 CELL_SIZE = 35
 GRID_WIDTH, GRID_HEIGHT = 20, 20
