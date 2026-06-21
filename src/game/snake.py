@@ -441,7 +441,7 @@ if __name__ == "__main__":
     parser.add_argument("--difficulty", type=int, default=3)
     parser.add_argument("--registration", action="store_true")
     parser.add_argument("--obs_mode", type=str, default="image")
-    parser.add_argument("--render_mode", type=str, default="human")
+    parser.add_argument("--render_mode", type=str, default="human") # otherwise rgb_array
     parser.add_argument("--max_step", type=int, default=500)
 
     args = parser.parse_args()
@@ -451,6 +451,10 @@ if __name__ == "__main__":
     obs_mode = args.obs_mode
     render_mode = args.render_mode
     max_step = args.max_step
+
+    if registration and obs_mode != "image":
+        print("Warning: registration can happens only if the observation mode is set to image. Registration will be set off.")
+        registration = False
 
     if registration:
         import cv2
