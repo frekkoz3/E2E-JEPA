@@ -21,7 +21,7 @@ if __name__ == '__main__':
     trainer = ActiveE2EJEPATrainer(
         encoder=VisionTransformer(),
         predictor=ActionConditionedPredictor(),
-        policy_network=PolicyNetwork(),
+        policy=Policy(),
         action_dim=ACTION_DIM
     )
     
