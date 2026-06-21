@@ -65,6 +65,24 @@ class EpsilonGreedy:
 
 
 
+class EpsilonConstant(EpsilonGreedy):
+    """Constant epsilon-greedy policy"""
+
+    def __init__(self, **kwargs):
+        """
+        Initializes a constant epsilon-greedy policy.
+
+        Parameters
+        ----------
+        **kwargs:
+            Additional keyword arguments (not used in this class).
+        """
+        super().__init__(epsilon_start=kwargs.get("epsilon_start", 1.0),
+                         epsilon_coeff=1.0,
+                         epsilon_end=kwargs.get("epsilon_end", 0.0))
+
+
+
 class Policy:
     """Policy class that combines a network architecture and an epsilon-greedy strategy for action selection."""
 
@@ -136,7 +154,7 @@ class Policy:
         assert "observation_type" in kwargs, f"Environment requires 'observation_type' parameter."
 
         num_envs = kwargs.get("n_environments", 1)
-
+        print(f"NUM ENVS: {num_envs}")
         self.environment = gym.vector.SyncVectorEnv([lambda: maps[environment](**kwargs) for _ in range(num_envs)]) if num_envs > 1 else maps[environment](**kwargs)
 
 
@@ -176,9 +194,7 @@ class Policy:
         """Sets the epsilon-greedy strategy for exploration."""
         maps = {
             "EpsilonGreedy": EpsilonGreedy,
-            "EpsilonConstant": lambda **kwargs: EpsilonGreedy(epsilon_start = kwargs.get("epsilon_start", 1.0),
-                                                              epsilon_coeff= 1.0,
-                                                              epsilon_end = kwargs.get("epsilon_end", 0.0))
+            "EpsilonConstant": EpsilonConstant
         }
 
         # Assertions
@@ -238,7 +254,7 @@ class Policy:
         state_tensor = state if isinstance(state, torch.Tensor) else torch.tensor(state, dtype=torch.float32, device=self.device)
 
         # 1. Batched 2D grids: (num_envs, 20, 20) -> (num_envs, 400)
-        if state_tensor.dim() == 3 and state_tensor.shape[1:] == (20, 20):
+        if state_tensor.dim() == 3 and state_tensor.shape[1:] == (20, 20) and isinstance(self.network, (ConvPPO, AttentionPPO)):
             state_tensor = state_tensor.view(state_tensor.shape[0], -1)
 
         # 2. Flatten the 2D grid from the environment (20, 20) -> (1, 400)

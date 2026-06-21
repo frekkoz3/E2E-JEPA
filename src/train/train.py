@@ -6,7 +6,7 @@ r"""
  |_____|_____|_____|     \___/|_____|_| /_/   \_\
 """
 from src.jepa.jepa import VisionTransformer, ActionConditionedPredictor
-from src.policy.policy import PolicyNetwork
+from src.policy.policy import Policy
 from src.game.snake import SnakeEnv
 from src.jepa.e2e_jepa import *
 
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     trainer = ActiveE2EJEPATrainer(
         encoder=VisionTransformer(),
         predictor=ActionConditionedPredictor(),
-        policy_network=PolicyNetwork(),
+        policy=Policy(),
         action_dim=ACTION_DIM
     )
     
@@ -35,7 +35,7 @@ if __name__ == '__main__':
         for step in range(STEPS_PER_EPOCH):
             
             # Choose action actively using current model state
-            a_t = trainer.get_action(x_t, epoch, TOTAL_EPOCHS)
+            a_t, _ = trainer.get_action(x_t)
             
             # Step the real environment
             x_tp1, r_t, done, _, _ = env.step(a_t)
