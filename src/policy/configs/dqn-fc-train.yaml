@@ -2,12 +2,12 @@ environment:
   environment : "Snake"
   n_environments: 1
   render_mode : "rgb_array"
-  difficulty : 2
+  difficulty : 0
   observation_type : "grid"
   n_actions : 4
   reward_food : 20
-  reward_death :  -5
-  reward_step : -0.5
+  reward_death :  -0.5
+  reward_step : 0.0
 
 policy:
   network : "DQN"
@@ -16,13 +16,13 @@ policy:
   epsilon_strategy : "EpsilonGreedy"
   epsilon_start : 1.0
   epsilon_end : 0.
-  epsilon_coeff : 0.999
+  epsilon_coeff : 0.99999
 
 policy-network:
   input_dim : 400
   output_dim : 4
-  num_hidden_layer : 2
-  dim_hidden_layer : [16, 32]
+  num_hidden_layer : 7
+  dim_hidden_layer : [1024, 4096, 512, 256, 128, 32, 16]
 
 policy-loss:
   loss : "MSELoss"
@@ -31,11 +31,16 @@ training:
   device : "cpu"
   optimizer : "Adam"
   lr_init : 0.05
-  lr_scheduler : "StepLR"
+  lr_scheduler : "ExponentialLR"
   lr_step_size : 10
-  lr_gamma : 0.05
+  lr_gamma : 0.999
   n_epochs: 5
-  n_episodes: 100
+  n_episodes: 50000
+
+save:
+  checkpoint: 1000
+  save_model: True
+  save_path: "./src/policy/models/fc-dqn/"
 
 pretrain:
   # network_model_path : "PUT-HERE-SOME-PATH.PT"
