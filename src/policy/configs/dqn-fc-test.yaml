@@ -1,0 +1,46 @@
+environment:
+  environment : "Snake"
+  n_environments: 1
+  render_mode : "human"
+  difficulty : 0
+  observation_type : "grid"
+  n_actions : 4
+  reward_food : 20
+  reward_death :  -1
+  reward_step : 0.0
+
+policy:
+  network : "DQN"
+  horizon : 1
+  reward_discount : 0.995
+  epsilon_strategy : "EpsilonGreedy"
+  epsilon_start : 1.0
+  epsilon_end : 0.
+  epsilon_coeff : 0.9995
+
+policy-network:
+  input_dim : 400
+  output_dim : 4
+  num_hidden_layer : 2
+  dim_hidden_layer : [16, 32]
+
+policy-loss:
+  loss : "MSELoss"
+
+training:
+  device : "cpu"
+  optimizer : "Adam"
+  lr_init : 0.05
+  lr_scheduler : "ExponentialLR"
+  lr_step_size : 10
+  lr_gamma : 0.999
+  n_epochs: 5
+  n_episodes: 5000
+
+save:
+  checkpoint: 1000
+  save_model: True
+  save_path: "./src/policy/models/fc-dqn/"
+
+pretrain:
+ network_model_path : "./src/policy/models/fc-dqn/ep_1000-5000.pth"

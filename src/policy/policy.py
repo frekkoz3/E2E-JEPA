@@ -13,6 +13,7 @@ The file implements a class Policy that takes care of
 - more
 """
 from collections import deque
+import copy
 
 import yaml
 import argparse
@@ -62,6 +63,24 @@ class EpsilonGreedy:
         else:
             self.eps = self.limit
         return self.eps
+
+
+
+class EpsilonConstant(EpsilonGreedy):
+    """Constant epsilon-greedy policy"""
+
+    def __init__(self, **kwargs):
+        """
+        Initializes a constant epsilon-greedy policy.
+
+        Parameters
+        ----------
+        **kwargs:
+            Additional keyword arguments (not used in this class).
+        """
+        super().__init__(epsilon_start=kwargs.get("epsilon_start", 1.0),
+                         epsilon_coeff=1.0,
+                         epsilon_end=kwargs.get("epsilon_end", 0.0))
 
 
 
@@ -121,6 +140,13 @@ class Policy:
 
         self.q_values = None
 
+        if isinstance(self.network, (DQN, AttentionDQN, ConvDQN)):
+            self.replay_buffer = deque(maxlen=50000)
+            self.batch_size = kwargs.get("mini_batch_size", 64)
+            self.target_network = copy.deepcopy(self.network)
+            self.target_net_update_freq = kwargs.get("target_update_freq", 25)
+            self.update_count = 0
+
 
     def _set_environment(self, environment : str, **kwargs):
         """Sets the environment for the policy."""
@@ -136,7 +162,7 @@ class Policy:
         assert "observation_type" in kwargs, f"Environment requires 'observation_type' parameter."
 
         num_envs = kwargs.get("n_environments", 1)
-
+        print(f"NUM ENVS: {num_envs}")
         self.environment = gym.vector.SyncVectorEnv([lambda: maps[environment](**kwargs) for _ in range(num_envs)]) if num_envs > 1 else maps[environment](**kwargs)
 
 
@@ -176,9 +202,7 @@ class Policy:
         """Sets the epsilon-greedy strategy for exploration."""
         maps = {
             "EpsilonGreedy": EpsilonGreedy,
-            "EpsilonConstant": lambda **kwargs: EpsilonGreedy(epsilon_start = kwargs.get("epsilon_start", 1.0),
-                                                              epsilon_coeff= 1.0,
-                                                              epsilon_end = kwargs.get("epsilon_end", 0.0))
+            "EpsilonConstant": EpsilonConstant
         }
 
         # Assertions
@@ -238,7 +262,7 @@ class Policy:
         state_tensor = state if isinstance(state, torch.Tensor) else torch.tensor(state, dtype=torch.float32, device=self.device)
 
         # 1. Batched 2D grids: (num_envs, 20, 20) -> (num_envs, 400)
-        if state_tensor.dim() == 3 and state_tensor.shape[1:] == (20, 20):
+        if state_tensor.dim() == 3 and state_tensor.shape[1:] == (20, 20) and isinstance(self.network, (ConvPPO, AttentionPPO)):
             state_tensor = state_tensor.view(state_tensor.shape[0], -1)
 
         # 2. Flatten the 2D grid from the environment (20, 20) -> (1, 400)
@@ -348,25 +372,38 @@ class Policy:
 
 
     def _get_buffer(self, state):
-        """Computes a batch of trajectories."""
+        """Computes a single trajectory buffer for Off-Policy DQN."""
         state = self._format_state(state)
         buffer = []
-        done = False
+        is_terminal = False
 
-        while not done:
+        while not is_terminal:
+            # Action is a scalar integer for a single environment
             action, _ = self.get_action(state, greedy=False)
-            next_state, reward, done, truncated, _ = self.environment.step(action)
-            next_state = self._format_state(next_state)
-            buffer.append((state, action, reward, next_state, done or truncated))
-            state = next_state
 
-        # Convert buffer to batch tensors
+            # Step returns scalars and standard Python booleans
+            next_state, reward, done, truncated, _ = self.environment.step(action)
+            is_terminal = done or truncated
+
+            next_state_formatted = self._format_state(next_state)
+
+            buffer.append((state, action, reward, next_state_formatted, is_terminal))
+            state = next_state_formatted
+
+        # Unpack the buffer
         states, actions, rewards, next_states, dones = zip(*buffer)
-        states = torch.tensor(np.array(states), dtype=torch.float32, device=self.device)
-        actions = torch.tensor(np.array(actions), dtype=torch.int64, device=self.device)
-        rewards = torch.tensor(np.array(rewards), dtype=torch.float32, device=self.device)
-        next_states = torch.tensor(np.array(next_states), dtype=torch.float32, device=self.device)
-        dones = torch.tensor(np.array(dones), dtype=torch.float32, device=self.device)
+
+        # states and next_states are tuples of tensors of shape [1, 1, 400]
+        # Concatenating them along dim=0 creates a valid 3D tensor -> [batch_size, 1, 400]
+        states = torch.cat(states, dim=0)
+        next_states = torch.cat(next_states, dim=0)
+
+        # actions, rewards, and dones are tuples of standard Python scalars.
+        # Convert them directly to 1D tensors.
+        actions = torch.tensor(actions, dtype=torch.int64, device=self.device)
+        rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
+        dones = torch.tensor(dones, dtype=torch.float32, device=self.device)
+
         batch = (states, actions, rewards, next_states, dones)
 
         return batch
@@ -388,22 +425,38 @@ class Policy:
 
 
     def _train_off_policy(self, init_state):
-        """DQN Optimization via Bellman Equation and Replay Buffer."""
-        # Create replay buffer
+        import random
+
+        # 1. Collect the trajectory and unpack it
         states, actions, rewards, next_states, dones = self._get_buffer(init_state)
 
-        # 1. Compute Current Q-values
-        q_values = self.network(states)
-        current_q = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
+        # 2. Push individual transitions to the persistent replay buffer
+        for i in range(len(states)):
+            self.replay_buffer.append((states[i], actions[i], rewards[i], next_states[i], dones[i]))
 
-        # 2. Compute Target Q-values (Bootstrap)
+        # 3. Do not train if the buffer does not have enough samples
+        if len(self.replay_buffer) < self.batch_size:
+            return {"loss": 0.0, "mean_value": 0.0}
+
+        # 4. Sample a random, decorrelated mini-batch
+        batch = random.sample(self.replay_buffer, self.batch_size)
+
+        b_states, b_actions, b_rewards, b_next_states, b_dones = zip(*batch)
+        b_states = torch.stack(b_states).to(self.device)
+        b_actions = torch.stack(b_actions).to(self.device)
+        b_rewards = torch.stack(b_rewards).to(self.device)
+        b_next_states = torch.stack(b_next_states).to(self.device)
+        b_dones = torch.stack(b_dones).to(self.device)
+
+        # 5. Compute Q-values and optimize
+        q_values = self.network(b_states)
+        current_q = q_values.gather(1, b_actions.unsqueeze(1)).squeeze(1)
+
         with torch.no_grad():
-            # TODO: Double DQN
-            next_q_values = self.network(next_states)
+            next_q_values = self.target_network(b_next_states)
             max_next_q = next_q_values.max(dim=1)[0]
-            target_q = rewards + (self.reward_discount * max_next_q * (1 - dones))
+            target_q = b_rewards + (self.reward_discount * max_next_q * (1 - b_dones))
 
-        # 3. Optimize
         td_loss = self.loss(current_q, target_q)
 
         self.optimizer.zero_grad()
@@ -413,9 +466,11 @@ class Policy:
 
         if self.scheduler:
             self.scheduler.step()
-
-        # Update Epsilon
         self.epsilon_strategy.step()
+
+        if (self.update_count + 1) % self.target_net_update_freq == 0:
+            self.target_network.load_state_dict(self.network.state_dict())
+        self.update_count += 1
 
         return {"loss": td_loss.item(), "mean_value": current_q.mean().item()}
 
