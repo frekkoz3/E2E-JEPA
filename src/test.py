@@ -12,24 +12,6 @@ model = VisualTransformer(
 
 x = torch.randn(2, 3, 224, 224)
 
-y = model(x)
-
-print(y.shape)
-
-with torch.no_grad():
-    patches = model.patch_embed(x)
-
-    cls_before = model.cls_token.expand(x.size(0), -1, -1)
-
-    tokens = torch.cat((cls_before, patches), dim=1)
-    tokens = model.pos_embed(tokens)
-
-    out = model.transformer(tokens)
-
-    cls_after = out[:, 0]
-
-print(torch.norm(cls_after - cls_before.squeeze(1)))
-
 num_classes = 5
 
 head = nn.Linear(768, num_classes)

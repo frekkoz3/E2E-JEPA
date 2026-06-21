@@ -66,18 +66,18 @@ class TransformerEncoderBlock(nn.Module):
             nn.init.constant_(self.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(self.adaLN_modulation[-1].bias, 0)
 
-    def forward(self, x, c):
+    def forward(self, x, c = None):
         if self.do_adaLN_modulation:
             shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
                 self.adaLN_modulation(c).chunk(6, dim=-1)
             )
 
-            x += gate_msa * self.attn(modulate(self.norm1(x), shift_msa, scale_msa))
-            x += gate_mlp * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
+            x = x + gate_msa * self.attn(modulate(self.norm1(x), shift_msa, scale_msa))
+            x = x + gate_mlp * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
         
         else:
-            x += self.attn(self.norm1(x))
-            x += self.mlp(self.norm2(x))
+            x = x + self.attn(self.norm1(x))
+            x = x + self.mlp(self.norm2(x))
         
         return x
     
@@ -122,7 +122,7 @@ class Transformer(nn.Module):
             c = self.cond_proj(c)
 
         for block in self.layers:
-            x = block(x) if not block.is_modulated() else block(x, c)
+            x = block(x) if not block.is_modulated() else block(x, c) # this should be always block(x, c) for how it is implemented in transformer encoder block
         x = self.norm(x)
 
         if hasattr(self, "output_proj"):
