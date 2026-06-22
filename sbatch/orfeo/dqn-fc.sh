@@ -3,71 +3,27 @@
 # ==============================================================================
 # SLURM RESOURCE ALLOCATION (SBATCH Directives)
 # ==============================================================================
-#SBATCH --job-name=E2EDFC
-#SBATCH --output=log/dqn_fc_%j.log
-#SBATCH --partition=GPU
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:V100:1
-#SBATCH --mem=32G
+#SBATCH --job-name=PolDQN
+#SBATCH --output=logs/%x_%j.out
+#SBATCH --error=logs/%x_%j.err
 #SBATCH --time=02:00:00
+#SBATCH --partition=boost_usr_prod
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=4G
+#SBATCH --account=uts26_tornator
+#SBATCH --gres=gpu:1
 
 # ==============================================================================
 # ENVIRONMENT SETUP
 # ==============================================================================
 
-if [ -n "$SLURM_SUBMIT_DIR" ]; then
-    cd "$SLURM_SUBMIT_DIR"
-fi
+module load python/3.11.7
+module load cuda/12.6
 
-# Ensure log directory exists so SBATCH doesn't fail silently
+source $SCRATCH/e2e-jepa/.venv/bin/activate
+
 mkdir -p log
 
-echo "Working directory set to: $(pwd)"
-
-# 1. Activate or Create the virtual environment
-if [ ! -d ".venv" ]; then
-    echo "Virtual environment not found. Creating .venv..."
-    ~/Python-3.12.0/python -m venv .venv
-    source .venv/bin/activate
-
-    python -m ensurepip --upgrade --default-pip
-    python -m pip install --quiet --upgrade pip
-
-    # Install dependencies based on your repo structure
-    echo "Installing requirements..."
-    if [ -f "src/policy/requirements.txt" ]; then
-        python -m pip install --quiet -r src/policy/requirements.txt
-    fi
-    if [ -f "src/game/requirements.txt" ]; then
-        python -m pip install --quiet -r src/game/requirements.txt
-    fi
-else
-    echo "Activating virtual environment from .venv..."
-    source .venv/bin/activate
-fi
-
-# 2. Crucial: Set PYTHONPATH to the root directory
-# This ensures imports like 'from src.policy.algorithms import *' resolve correctly
-export PYTHONPATH="$(pwd):$PYTHONPATH"
-
-# ==============================================================================
-# CONFIGURATION & JOB EXECUTION
-# ==============================================================================
-
-# Construct the config file path automatically
 CONFIG_FILE="./configs/raw-policies/dqn-fc-train.yaml"
-
-# Safety check
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Error: Configuration file ${CONFIG_FILE} not found!"
-    exit 1
-fi
-
-echo "Training model using configuration: ${CONFIG_FILE}"
-
-# Run the training script matching the argparse configuration in policy.py
 python -u src/policy/policy.py --config "${CONFIG_FILE}" --train
-
-echo "Job completed successfully."
