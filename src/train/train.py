@@ -49,28 +49,32 @@ if __name__ == '__main__':
     for epoch in range(TOTAL_EPOCHS):
         if epoch % REFRESH_BUFFER == 0:
             trainer.buffer.refresh()
+
+        trainer.encoder.eval()
+        trainer.predictor.eval()
             
         for step in range(STEPS_PER_EPOCH):
+
+            z_t = trainer.encoder(x_t)
             
             # Choose action actively using current model state
-            a_t, _ = trainer.get_action(x_t)
+            a_t, _ = trainer.get_action(z_t)
             
             # Step the real environment
             x_tp1, r_t, done, _, _ = env.step(a_t)
             x_tp1 = cv2.resize(x_tp1, (IMG_SIZE, IMG_SIZE))
-            
+            z_tp1 = trainer.encoder(x_tp1)
+
+            # Stream data into the experience buffer seamlessly
+            trainer.buffer.push(x_t, z_t, a_t_onehot, r_t, x_tp1, z_tp1, float(done))
+
             a_t_onehot = F.one_hot(torch.tensor(a_t), num_classes=ACTION_DIM).float()
             
-            if done:
-                x_tp1 = env.death_state()
-                x_tp1 = cv2.resize(x_tp1, (IMG_SIZE, IMG_SIZE))
-                # Stream data into the experience buffer seamlessly
-                trainer.buffer.push(x_t, a_t_onehot, r_t, x_tp1, float(done))
+            if done:        
+                # Reset        
                 x_t, _ = env.reset()
                 x_t = cv2.resize(x_t, (IMG_SIZE, IMG_SIZE))
             else:
-                # Stream data into the experience buffer seamlessly
-                trainer.buffer.push(x_t, a_t_onehot, r_t, x_tp1, float(done))
                 # Move forward
                 x_t = x_tp1
         

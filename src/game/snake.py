@@ -147,9 +147,12 @@ class SnakeEnv(gym.Env):
         return self._get_obs(), self.info
     
     def death_state(self):
-        all_black = np.zeros((TOTAL_HEIGHT, WIDTH, 3), dtype=np.uint8)
-        all_black_t = np.transpose(all_black, (1, 0, 2))
-        return all_black_t
+        if self.observation_type == "image":
+            all_black = np.zeros((TOTAL_HEIGHT, WIDTH, 3), dtype=np.uint8)
+            all_black_t = np.transpose(all_black, (1, 0, 2))
+            return all_black_t
+        else:
+            return np.zeros((GRID_HEIGHT, GRID_WIDTH), dtype=np.uint8)
     
     def _random_color(self):
         return random.choice(["red", "green", "yellow"])
@@ -235,7 +238,9 @@ class SnakeEnv(gym.Env):
                     self.grass_background.blit(self.sprites[tile], (x * CELL_SIZE, y * CELL_SIZE) )
 
 
-    def _get_obs(self):
+    def _get_obs(self, done = False):
+        if done:
+            return self.death_state()
         if self.observation_type == "image":
             return self._render_frame()
             
