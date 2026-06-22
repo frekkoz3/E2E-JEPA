@@ -36,10 +36,10 @@ class Policy:
 
     def __init__(self,
                  environment : str | None = "Snake",
-                 network : str = "DQN",
+                 pol_network : str = "DQN",
                  epsilon_strategy : str = "EpsilonGreedy",
                  optimizer : str = "Adam",
-                 loss : str = "MSELoss",
+                 pol_loss : str = "MSELoss",
                  device : str = "cpu",
                  reward_discount : float | int = 0.99,
                  **kwargs):
@@ -72,14 +72,14 @@ class Policy:
         # Set architecture
         if environment:
             self._set_environment(environment, **kwargs)
-        self._set_network(network, **kwargs)
+        self._set_network(pol_network, **kwargs)
         if kwargs.get("network_model_path", None) is not None:
             self.load_network(path = str(kwargs.get("network_model_path")))
         if self.device != "cpu":
             self.network.to(self.device)
         self._set_epsilon_strategy(epsilon_strategy, **kwargs)
         self._set_optimizer(optimizer, **kwargs)
-        self._set_loss(loss, **kwargs)
+        self._set_loss(pol_loss, **kwargs)
 
 
     def _set_environment(self, environment : str, **kwargs):
@@ -114,20 +114,20 @@ class Policy:
         # Assertions
         assert network in maps, f"Network '{network}' is not supported. Supported networks are: {list(maps.keys())}."
 
-        assert "input_dim" in kwargs and "output_dim" in kwargs, \
+        assert "pol_input_dim" in kwargs and "pol_output_dim" in kwargs, \
             f"The network requires 'input_dim' and 'output_dim' parameters."
         if network == "DQN":
-            assert "num_hidden_layer" in kwargs and "dim_hidden_layer" in kwargs, \
-                f"DQN requires 'num_hidden_layer' and 'dim_hidden_layer' parameters."
+            assert "pol_num_hidden_layer" in kwargs and "pol_dim_hidden_layer" in kwargs, \
+                f"DQN requires 'pol_num_hidden_layer' and 'pol_dim_hidden_layer' parameters."
         elif network == "ConvDQN" or network == "ConvPPO" or network == "ConvDQN2D":
-            assert "num_conv_layer" in kwargs and "conv_layer_params" in kwargs, \
-                f"ConvDQN requires 'num_conv_layer' and 'conv_layer_params' parameters."
-            assert "num_fc_layer" in kwargs and "dim_fc_layer" in kwargs, \
-                f"ConvDQN requires 'num_fc_layer' and 'dim_fc_layer' parameters."
+            assert "pol_num_conv_layer" in kwargs and "pol_conv_layer_params" in kwargs, \
+                f"ConvDQN requires 'pol_num_conv_layer' and 'pol_conv_layer_params' parameters."
+            assert "pol_num_fc_layer" in kwargs and "pol_dim_fc_layer" in kwargs, \
+                f"ConvDQN requires 'pol_num_fc_layer' and 'pol_dim_fc_layer' parameters."
         elif network == "AttentionDQN" or network == "AttentionPPO":
-            assert "num_attention_layer" in kwargs and "attention_layer_params" in kwargs, \
-                f"AttentionDQN requires 'num_attention_layer' and 'attention_layer_params' parameters."
-            assert "num_fc_layer" in kwargs and "dim_fc_layer" in kwargs, \
+            assert "pol_num_attention_layer" in kwargs and "pol_attention_layer_params" in kwargs, \
+                f"AttentionDQN requires 'pol_num_attention_layer' and 'pol_attention_layer_params' parameters."
+            assert "pol_num_fc_layer" in kwargs and "pol_dim_fc_layer" in kwargs, \
                 f"AttentionDQN requires 'num_fc_layer' and 'dim_fc_layer' parameters."
 
         self.network = maps[network](**kwargs)
@@ -144,7 +144,7 @@ class Policy:
         assert epsilon_strategy in maps, \
             f"Epsilon strategy '{epsilon_strategy}' is not supported. Supported strategies are: {list(maps.keys())}."
         assert "epsilon_start" in kwargs and "epsilon_coeff" in kwargs and "epsilon_end" in kwargs, \
-            f"EpsilonGreedy requires 'epsilon_start', 'coeff', and 'epsilon_end' parameters."
+            f"EpsilonGreedy requires 'epsilon_start', 'epsilon_coeff', and 'epsilon_end' parameters."
 
         self.epsilon_strategy = maps[epsilon_strategy](**kwargs)
 
@@ -237,7 +237,7 @@ class Policy:
 
         n_trajectories = kwargs.get("n_trajectories", 100)
         save_model = kwargs.get("save_model", False)
-        checkpoint = kwargs.get("checkpoint", 10)
+        checkpoint = kwargs.get("epochs_per_checkpoint", 10)
         folder_path = kwargs.get("save_path", f"./src/policy/models/")
 
         for trajectory in range(n_trajectories):
@@ -258,17 +258,17 @@ class PolicyPPO(Policy):
     def __init__(self,  **kwargs):
 
         assert kwargs.get("network", "ConvPPO") in ["ConvPPO", "AttentionPPO"], \
-            f"Invalid network type: {kwargs.get('network')}. Must be 'ConvPPO' or 'AttentionPPO'."
-        assert kwargs.get("loss", "PPOLoss") in ["PPOLoss", "A2CLoss"], \
-            f"Invalid loss type: {kwargs.get('loss')}. Must be 'PPOLoss' or 'A2CLoss'."
+            f"Invalid network type: {kwargs.get('pol_network')}. Must be 'ConvPPO' or 'AttentionPPO'."
+        assert kwargs.get("pol_loss", "PPOLoss") in ["PPOLoss", "A2CLoss"], \
+            f"Invalid loss type: {kwargs.get('pol_loss')}. Must be 'PPOLoss' or 'A2CLoss'."
         assert kwargs.get("epsilon_strategy", "EpsilonConstant") == "EpsilonConstant", \
             f"Invalid epsilon strategy: {kwargs.get('epsilon_strategy')}. Must be 'EpsilonConstant' for PolicyPPO."
 
         super().__init__(**kwargs)
 
-        self.n_inner_epochs = kwargs.get("n_inner_epochs", 4)
-        self.mini_batch_size = kwargs.get("mini_batch_size", 8)
-        self.horizon = kwargs.get("horizon", 1)
+        self.n_inner_epochs = kwargs.get("pol_n_inner_epochs", 4)
+        self.mini_batch_size = kwargs.get("pol_mini_batch_size", 8)
+        self.horizon = kwargs.get("pol_horizon", 1)
 
 
     @torch.no_grad()
@@ -472,9 +472,9 @@ class PolicyDQN(Policy):
 
     def __init__(self,**kwargs):
 
-        assert kwargs.get("network", "ConvDQN") in ["ConvDQN", "ConvDQN2D", "AttentionDQN", "DQN"], \
-            f"Invalid network type: {kwargs.get('network')}. Must be 'ConvDQN' or 'AttentionDQN' or 'DQN'."
-        assert kwargs.get("loss", "MSELoss") == "MSELoss", \
+        assert kwargs.get("pol_network", "ConvDQN") in ["ConvDQN", "ConvDQN2D", "AttentionDQN", "DQN"], \
+            f"Invalid network type: {kwargs.get('pol_network')}. Must be 'ConvDQN' or 'AttentionDQN' or 'DQN'."
+        assert kwargs.get("pol_loss", "MSELoss") == "MSELoss", \
             f"Invalid loss type: {kwargs.get('loss')}. Must be 'MSELoss'."
         assert kwargs.get("epsilon_strategy", "EpsilonConstant") in ["EpsilonConstant", "EpsilonGreedy"], \
             f"Invalid epsilon strategy: {kwargs.get('epsilon_strategy')}. Must be 'EpsilonConstant' or 'EpsilonGreedy'."

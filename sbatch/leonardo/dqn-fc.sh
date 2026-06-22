@@ -21,7 +21,7 @@
 module load python/3.11.7
 module load cuda/12.6
 
-source $SCRATCH/e2e-jepa/.venv/bin/activate
+source $SCRATCH/E2E-JEPA/.venv/bin/activate
 
 mkdir -p log
 

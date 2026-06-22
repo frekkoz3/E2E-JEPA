@@ -25,10 +25,10 @@ class DQN(nn.Module):
     """
 
     def __init__(self,
-                 input_dim : int,
-                 output_dim : int,
-                 num_hidden_layer : int,
-                 dim_hidden_layer : list[int],
+                 pol_input_dim : int,
+                 pol_output_dim : int,
+                 pol_num_hidden_layer : int,
+                 pol_dim_hidden_layer : list[int],
                  **kwargs):
         """
         Applies a feedforward neural network with ReLU activations to approximate Q-values.
@@ -48,17 +48,17 @@ class DQN(nn.Module):
         """
         super(DQN, self).__init__()
 
-        assert len(dim_hidden_layer) == num_hidden_layer, \
-            f"The number of dimensions ({len(dim_hidden_layer)}) must match the number of layers ({num_hidden_layer})."
+        assert len(pol_dim_hidden_layer) == pol_num_hidden_layer, \
+            f"The number of dimensions ({len(pol_dim_hidden_layer)}) must match the number of layers ({pol_num_hidden_layer})."
 
-        self.first_layer = nn.Sequential(nn.Linear(input_dim, dim_hidden_layer[0]), nn.ReLU())
+        self.first_layer = nn.Sequential(nn.Linear(pol_input_dim, pol_dim_hidden_layer[0]), nn.ReLU())
         self.hidden_layers = nn.Sequential(*
             [
-            nn.Sequential(nn.Linear(dim_hidden_layer[i], dim_hidden_layer[i+1]), nn.ReLU())
-            for i in range(num_hidden_layer-1)
+            nn.Sequential(nn.Linear(pol_dim_hidden_layer[i], pol_dim_hidden_layer[i+1]), nn.ReLU())
+            for i in range(pol_num_hidden_layer-1)
             ],
         )
-        self.output = nn.Linear(dim_hidden_layer[-1], output_dim)
+        self.output = nn.Linear(pol_dim_hidden_layer[-1], pol_output_dim)
 
 
     def forward(self, state):
@@ -77,12 +77,12 @@ class ConvDQN(nn.Module):
     """
 
     def __init__(self,
-                 input_dim : int,
-                 output_dim : int,
-                 num_conv_layer : int,
-                 conv_layer_params : list[dict],
-                 num_fc_layer : int,
-                 dim_fc_layer : list[int],
+                 pol_input_dim : int,
+                 pol_output_dim : int,
+                 pol_num_conv_layer : int,
+                 pol_conv_layer_params : list[dict],
+                 pol_num_fc_layer : int,
+                 pol_dim_fc_layer : list[int],
                  **kwargs):
         """
         Initializes the ConvDQN network.
@@ -106,35 +106,35 @@ class ConvDQN(nn.Module):
         """
         super(ConvDQN, self).__init__()
 
-        assert len(conv_layer_params) == num_conv_layer, \
-            (f"The number of convolutional layer parameters ({len(conv_layer_params)}) "
-             f"must match the number of convolutional layers ({num_conv_layer}).")
-        assert len(dim_fc_layer) == num_fc_layer, \
-            (f"The number of fully connected layer dimensions ({len(dim_fc_layer)}) "
-             f"must match the number of fully connected layers ({num_fc_layer}).")
+        assert len(pol_conv_layer_params) == pol_num_conv_layer, \
+            (f"The number of convolutional layer parameters ({len(pol_conv_layer_params)}) "
+             f"must match the number of convolutional layers ({pol_num_conv_layer}).")
+        assert len(pol_dim_fc_layer) == pol_num_fc_layer, \
+            (f"The number of fully connected layer dimensions ({len(pol_dim_fc_layer)}) "
+             f"must match the number of fully connected layers ({pol_num_fc_layer}).")
 
         self.conv_layers = nn.Sequential(*
             [
                 nn.Sequential(
-                    nn.Conv1d(in_channels=1 if i==0 else conv_layer_params[i-1].get('out_channels', 4),
-                              out_channels=conv_layer_params[i].get('out_channels', 4),
-                              kernel_size=conv_layer_params[i].get('kernel_size', 3),
-                              stride=conv_layer_params[i].get('stride', 1)),
+                    nn.Conv1d(in_channels=1 if i==0 else pol_conv_layer_params[i-1].get('out_channels', 4),
+                              out_channels=pol_conv_layer_params[i].get('out_channels', 4),
+                              kernel_size=pol_conv_layer_params[i].get('kernel_size', 3),
+                              stride=pol_conv_layer_params[i].get('stride', 1)),
                     nn.ReLU()
                 )
-                for i in range(num_conv_layer)
+                for i in range(pol_num_conv_layer)
             ]
         )
         self.fc_layers = nn.Sequential(*
             [
                 nn.Sequential(
-                    nn.Linear(dim_fc_layer[i], dim_fc_layer[i+1]),
+                    nn.Linear(pol_dim_fc_layer[i], pol_dim_fc_layer[i+1]),
                     nn.ReLU()
                 )
-                for i in range(num_fc_layer-1)
+                for i in range(pol_num_fc_layer-1)
             ]
         )
-        self.output = nn.Linear(dim_fc_layer[-1], output_dim)
+        self.output = nn.Linear(pol_dim_fc_layer[-1], pol_output_dim)
 
 
     def forward(self, state):
@@ -154,12 +154,12 @@ class ConvDQN2D(nn.Module):
     """
 
     def __init__(self,
-                 input_dim : int,
-                 output_dim : int,
-                 num_conv_layer : int,
-                 conv_layer_params : list[dict],
-                 num_fc_layer : int,
-                 dim_fc_layer : list[int],
+                 pol_input_dim : int,
+                 pol_output_dim : int,
+                 pol_num_conv_layer : int,
+                 pol_conv_layer_params : list[dict],
+                 pol_num_fc_layer : int,
+                 pol_dim_fc_layer : list[int],
                  **kwargs):
         """
         Initializes the ConvDQN network.
@@ -183,35 +183,35 @@ class ConvDQN2D(nn.Module):
         """
         super(ConvDQN2D, self).__init__()
 
-        assert len(conv_layer_params) == num_conv_layer, \
-            (f"The number of convolutional layer parameters ({len(conv_layer_params)}) "
-             f"must match the number of convolutional layers ({num_conv_layer}).")
-        assert len(dim_fc_layer) == num_fc_layer, \
-            (f"The number of fully connected layer dimensions ({len(dim_fc_layer)}) "
-             f"must match the number of fully connected layers ({num_fc_layer}).")
+        assert len(pol_conv_layer_params) == pol_num_conv_layer, \
+            (f"The number of convolutional layer parameters ({len(pol_conv_layer_params)}) "
+             f"must match the number of convolutional layers ({pol_num_conv_layer}).")
+        assert len(pol_dim_fc_layer) == pol_num_fc_layer, \
+            (f"The number of fully connected layer dimensions ({len(pol_dim_fc_layer)}) "
+             f"must match the number of fully connected layers ({pol_num_fc_layer}).")
 
         self.conv_layers = nn.Sequential(*
                                          [
                                              nn.Sequential(
-                                                 nn.Conv2d(in_channels=1 if i==0 else conv_layer_params[i-1].get('out_channels', 4),
-                                                           out_channels=conv_layer_params[i].get('out_channels', 4),
-                                                           kernel_size=conv_layer_params[i].get('kernel_size', 3),
-                                                           stride=conv_layer_params[i].get('stride', 1)),
+                                                 nn.Conv2d(in_channels=1 if i==0 else pol_conv_layer_params[i-1].get('out_channels', 4),
+                                                           out_channels=pol_conv_layer_params[i].get('out_channels', 4),
+                                                           kernel_size=pol_conv_layer_params[i].get('kernel_size', 3),
+                                                           stride=pol_conv_layer_params[i].get('stride', 1)),
                                                  nn.ReLU()
                                              )
-                                             for i in range(num_conv_layer)
+                                             for i in range(pol_num_conv_layer)
                                          ]
                                          )
         self.fc_layers = nn.Sequential(*
                                        [
                                            nn.Sequential(
-                                               nn.Linear(dim_fc_layer[i], dim_fc_layer[i+1]),
+                                               nn.Linear(pol_dim_fc_layer[i], pol_dim_fc_layer[i+1]),
                                                nn.ReLU()
                                            )
-                                           for i in range(num_fc_layer-1)
+                                           for i in range(pol_num_fc_layer-1)
                                        ]
                                        )
-        self.output = nn.Linear(dim_fc_layer[-1], output_dim)
+        self.output = nn.Linear(pol_dim_fc_layer[-1], pol_output_dim)
 
 
     def forward(self, state):
@@ -231,12 +231,12 @@ class AttentionDQN(nn.Module):
     """
 
     def __init__(self,
-                 input_dim: int,
-                 output_dim : int,
-                 num_attention_layer : int,
-                 attention_layer_params : list[dict],
-                 num_fc_layer : int,
-                 dim_fc_layer : list[int],
+                 pol_input_dim: int,
+                 pol_output_dim : int,
+                 pol_num_attention_layer : int,
+                 pol_attention_layer_params : list[dict],
+                 pol_num_fc_layer : int,
+                 pol_dim_fc_layer : list[int],
                  **kwargs):
         """
         Initializes the AttentionDQN network.
@@ -260,24 +260,24 @@ class AttentionDQN(nn.Module):
         """
         super(AttentionDQN, self).__init__()
 
-        assert len(attention_layer_params) == num_attention_layer, \
-            (f"The number of attention layer parameters ({len(attention_layer_params)}) "
-             f"must match the number of attention layers ({num_attention_layer}).")
-        assert len(dim_fc_layer) == num_fc_layer, \
-            (f"The number of fully connected layer dimensions ({len(dim_fc_layer)}) "
-             f"must match the number of fully connected layers ({num_fc_layer}).")
+        assert len(pol_attention_layer_params) == pol_num_attention_layer, \
+            (f"The number of attention layer parameters ({len(pol_attention_layer_params)}) "
+             f"must match the number of attention layers ({pol_num_attention_layer}).")
+        assert len(pol_dim_fc_layer) == pol_num_fc_layer, \
+            (f"The number of fully connected layer dimensions ({len(pol_dim_fc_layer)}) "
+             f"must match the number of fully connected layers ({pol_num_fc_layer}).")
 
         # Transformer Encoder layers.
         attention_blocks = []
-        for i in range(num_attention_layer):
-            heads = attention_layer_params[i].get('num_heads', 4)
+        for i in range(pol_num_attention_layer):
+            heads = pol_attention_layer_params[i].get('pol_num_heads', 4)
 
-            assert input_dim % heads == 0, f"input_dim ({input_dim}) must be divisible by num_heads ({heads})."
+            assert pol_input_dim % heads == 0, f"input_dim ({pol_input_dim}) must be divisible by pol_num_heads ({heads})."
 
             layer = nn.TransformerEncoderLayer(
-                d_model=input_dim,
+                d_model=pol_input_dim,
                 nhead=heads,
-                dim_feedforward=input_dim * 4, # Standard expansion factor
+                dim_feedforward=pol_input_dim * 4, # Standard expansion factor
                 activation='relu',
                 batch_first=True # Expects [batch, seq, feature]
             )
@@ -286,17 +286,17 @@ class AttentionDQN(nn.Module):
         self.attention_layers = nn.Sequential(*attention_blocks)
 
         # 2. Fully Connected Head
-        current_dim = input_dim
+        current_dim = pol_input_dim
         self.fc_layers = nn.Sequential(*
             [
                 nn.Sequential(
-                    nn.Linear(current_dim if i==0 else dim_fc_layer[i-1], dim_fc_layer[i]),
+                    nn.Linear(current_dim if i==0 else pol_dim_fc_layer[i-1], pol_dim_fc_layer[i]),
                     nn.ReLU()
                 )
-                for i in range(num_fc_layer)
+                for i in range(pol_num_fc_layer)
             ])
 
-        self.output = nn.Linear(dim_fc_layer[-1], output_dim)
+        self.output = nn.Linear(pol_dim_fc_layer[-1], pol_output_dim)
 
 
     def forward(self, state):
@@ -322,12 +322,12 @@ class ConvPPO(nn.Module):
     """
 
     def __init__(self,
-                 input_dim : int,
-                 output_dim : int,
-                 num_conv_layer : int,
-                 conv_layer_params : list[dict],
-                 num_fc_layer : int,
-                 dim_fc_layer : list[int],
+                 pol_input_dim : int,
+                 pol_output_dim : int,
+                 pol_num_conv_layer : int,
+                 pol_conv_layer_params : list[dict],
+                 pol_num_fc_layer : int,
+                 pol_dim_fc_layer : list[int],
                  **kwargs):
         """
         Initializes the ConvPPO network.
@@ -351,38 +351,38 @@ class ConvPPO(nn.Module):
         """
         super(ConvPPO, self).__init__()
 
-        assert len(conv_layer_params) == num_conv_layer, \
-            (f"The number of convolutional layer parameters ({len(conv_layer_params)}) "
-             f"must match the number of convolutional layers ({num_conv_layer}).")
-        assert len(dim_fc_layer) == num_fc_layer, \
-            (f"The number of fully connected layer dimensions ({len(dim_fc_layer)}) "
-             f"must match the number of fully connected layers ({num_fc_layer}).")
+        assert len(pol_conv_layer_params) == pol_num_conv_layer, \
+            (f"The number of convolutional layer parameters ({len(pol_conv_layer_params)}) "
+             f"must match the number of convolutional layers ({pol_num_conv_layer}).")
+        assert len(pol_dim_fc_layer) == pol_num_fc_layer, \
+            (f"The number of fully connected layer dimensions ({len(pol_dim_fc_layer)}) "
+             f"must match the number of fully connected layers ({pol_num_fc_layer}).")
 
         self.conv_layers = nn.Sequential(*
             [
                 nn.Sequential(
-                    nn.Conv1d(in_channels=1 if i==0 else conv_layer_params[i-1].get('out_channels', 4),
-                              out_channels=conv_layer_params[i].get('out_channels', 4),
-                              kernel_size=conv_layer_params[i].get('kernel_size', 3),
-                              stride=conv_layer_params[i].get('stride', 1)),
+                    nn.Conv1d(in_channels=1 if i==0 else pol_conv_layer_params[i-1].get('out_channels', 4),
+                              out_channels=pol_conv_layer_params[i].get('out_channels', 4),
+                              kernel_size=pol_conv_layer_params[i].get('kernel_size', 3),
+                              stride=pol_conv_layer_params[i].get('stride', 1)),
                     nn.ReLU()
                 )
-                for i in range(num_conv_layer)
+                for i in range(pol_num_conv_layer)
             ]
         )
         self.fc_layers = nn.Sequential(*
             [
                 nn.Sequential(
-                    nn.Linear(dim_fc_layer[i], dim_fc_layer[i+1]),
+                    nn.Linear(pol_dim_fc_layer[i], pol_dim_fc_layer[i+1]),
                     nn.ReLU()
                 )
-                for i in range(num_fc_layer-1)
+                for i in range(pol_num_fc_layer-1)
             ]
         )
 
         # Dual heads
-        self.actor_head = nn.Linear(dim_fc_layer[-1], output_dim)
-        self.critic_head = nn.Linear(dim_fc_layer[-1], 1)
+        self.actor_head = nn.Linear(pol_dim_fc_layer[-1], pol_output_dim)
+        self.critic_head = nn.Linear(pol_dim_fc_layer[-1], 1)
 
 
     def forward(self, state):
@@ -406,12 +406,12 @@ class AttentionPPO(nn.Module):
     """
 
     def __init__(self,
-                 input_dim: int,
-                 output_dim : int,
-                 num_attention_layer : int,
-                 attention_layer_params : list[dict],
-                 num_fc_layer : int,
-                 dim_fc_layer : list[int],
+                 pol_input_dim: int,
+                 pol_output_dim : int,
+                 pol_num_attention_layer : int,
+                 pol_attention_layer_params : list[dict],
+                 pol_num_fc_layer : int,
+                 pol_dim_fc_layer : list[int],
                  **kwargs):
         """
         Initializes the AttentionDQN network.
@@ -435,25 +435,25 @@ class AttentionPPO(nn.Module):
         """
         super(AttentionPPO, self).__init__()
 
-        assert len(attention_layer_params) == num_attention_layer, \
-            (f"The number of attention layer parameters ({len(attention_layer_params)}) "
-             f"must match the number of attention layers ({num_attention_layer}).")
-        assert len(dim_fc_layer) == num_fc_layer, \
-            (f"The number of fully connected layer dimensions ({len(dim_fc_layer)}) "
-             f"must match the number of fully connected layers ({num_fc_layer}).")
+        assert len(pol_attention_layer_params) == pol_num_attention_layer, \
+            (f"The number of attention layer parameters ({len(pol_attention_layer_params)}) "
+             f"must match the number of attention layers ({pol_num_attention_layer}).")
+        assert len(pol_dim_fc_layer) == pol_num_fc_layer, \
+            (f"The number of fully connected layer dimensions ({len(pol_dim_fc_layer)}) "
+             f"must match the number of fully connected layers ({pol_num_fc_layer}).")
 
 
         # Transformer Encoder layers.
         attention_blocks = []
-        for i in range(num_attention_layer):
-            heads = attention_layer_params[i].get('num_heads', 4)
+        for i in range(pol_num_attention_layer):
+            heads = pol_attention_layer_params[i].get('pol_num_heads', 4)
 
-            assert input_dim % heads == 0, f"input_dim ({input_dim}) must be divisible by num_heads ({heads})."
+            assert pol_input_dim % heads == 0, f"input_dim ({pol_input_dim}) must be divisible by pol_num_heads ({heads})."
 
             layer = nn.TransformerEncoderLayer(
-                d_model=input_dim,
+                d_model=pol_input_dim,
                 nhead=heads,
-                dim_feedforward=input_dim * 4, # Standard expansion factor
+                dim_feedforward=pol_input_dim * 4, # Standard expansion factor
                 activation='relu',
                 batch_first=True # Expects [batch, seq, feature]
             )
@@ -462,18 +462,18 @@ class AttentionPPO(nn.Module):
         self.attention_layers = nn.Sequential(*attention_blocks)
 
         # 2. Fully Connected Head
-        current_dim = input_dim
+        current_dim = pol_input_dim
         self.fc_layers = nn.Sequential(*[
                                            nn.Sequential(
-                                               nn.Linear(current_dim if i==0 else dim_fc_layer[i-1], dim_fc_layer[i]),
+                                               nn.Linear(current_dim if i==0 else pol_dim_fc_layer[i-1], pol_dim_fc_layer[i]),
                                                nn.ReLU()
                                            )
-                                           for i in range(num_fc_layer)
+                                           for i in range(pol_num_fc_layer)
                                        ])
 
         # Dual heads
-        self.actor_head = nn.Linear(dim_fc_layer[-1], output_dim)
-        self.critic_head = nn.Linear(dim_fc_layer[-1], 1)
+        self.actor_head = nn.Linear(pol_dim_fc_layer[-1], pol_output_dim)
+        self.critic_head = nn.Linear(pol_dim_fc_layer[-1], 1)
 
 
     def forward(self, state):

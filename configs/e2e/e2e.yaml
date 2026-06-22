@@ -69,7 +69,7 @@ policy:
 
 
 training:
-  device : "cuda"
+  device : "cpu"
 
   n_epochs : 12
   steps_per_epoch : 256
@@ -87,8 +87,8 @@ training:
 
 save:
   epochs_per_checkpoint: 5
-  save: True
-  save_path: "./models/e2e/"
+  save_model: True
+  # save_path: "./models/e2e/"
 
 load:
 # network_model_path : "PUT-HERE-SOME-PATH.PT"

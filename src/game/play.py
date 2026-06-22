@@ -76,7 +76,7 @@ class PlayEnv:
         trunc = False
 
         while not done and not trunc:
-            obs = self.policy._format_state(obs, bracket = True)
+            obs = self.policy._format_state(obs)
             new_action, info = self.policy.get_action(obs, greedy = True)
             print(info)
             obs, rew, done, trunc, info = self.env.step(new_action)
