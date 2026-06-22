@@ -482,7 +482,7 @@ class PolicyDQN(Policy):
         super().__init__(**kwargs)
 
         self.target_network = copy.deepcopy(self.network)
-        self.target_net_update_freq = kwargs.get("target_update_freq", 25)
+        self.target_net_update_freq = kwargs.get("target_net_update_freq", 25)
         self.epoch = 0
 
         self.buffer_size = kwargs.get("buffer_size", 10000)
@@ -851,6 +851,7 @@ class PolicyDQN(Policy):
             A dictionary containing the computed losses for monitoring and analysis.
         """
         # Compute Q-Values for the initial state
+        print(f"init state dim : {init_state.shape}")
         q_values = self.network(init_state)
         online_q_values = q_values.gather(1, torch.argmax(q_values, dim=-1, keepdim=True)).squeeze(-1)
 
@@ -858,7 +859,9 @@ class PolicyDQN(Policy):
         with torch.no_grad():
             next_q_values = self.target_network(next_state)
             max_next_q_values, _ = torch.max(next_q_values, dim=-1)
+            print(f"{max_next_q_values.device}, {dones.device}")
             target_q_values = rewards + self.reward_discount * max_next_q_values * (1 - dones)
+            
 
         # Compute the loss (MSE) between online and target Q-Values
         loss = self.loss(online_q_values, target_q_values)
@@ -871,10 +874,10 @@ class PolicyDQN(Policy):
 
         # Update target network
         self.epoch += 1
-        if self.epoch % self.target_update_freq == 0:
+        if self.epoch % self.target_net_update_freq == 0:
             self.target_network.load_state_dict(self.network.state_dict())
 
-        return {"loss": loss.item()}
+        return loss
 
 
 

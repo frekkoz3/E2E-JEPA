@@ -13,7 +13,8 @@ from collections import deque
 from typing import Dict, Any, Tuple
 
 from src.game.snake import SnakeEnv
-from src.policy.algorithms import ConvPPO, AttentionPPO, Policy
+from src.policy.algorithms import ConvPPO, AttentionPPO
+from src.policy.policy import Policy
 
 # Experience Replay Buffer for Online Trajectories
 class OnlineTrajectoryBuffer:
@@ -154,7 +155,7 @@ class ActiveE2EJEPATrainer:
             return torch.mean((h_std - 1.0) ** 2) + torch.mean(h_mean ** 2)
 
 
-    def update_parameters(self, batch_size: int, epoch: int, total_epochs: int) -> Dict[str, float]:
+    def update_parameters(self, batch_size: int, epoch: int, total_epochs: int, device : str = "cuda") -> Dict[str, float]:
         """Samples from active trajectory memory and performs backpropagation."""
         if len(self.buffer) < batch_size:
             return {} # Not enough data collected yet
@@ -166,36 +167,37 @@ class ActiveE2EJEPATrainer:
 
         # Sample online trajectory combinations
         x_t, z_t, a_t, r_t, x_tp1, z_tp1, done = self.buffer.sample(batch_size)
-        print(a_t.shape)
-        print(z_t.shape)
 
         # Regularization parameter
         alpha = 0.1
     
         # Latent Mappings
-        z_t = self.encoder(x_t) # to take the cls token
-        z_tp1_target = self.encoder(x_tp1) # to take the cls token
-        z_tp1_pred = self.predictor(z_t, a_t) # to project in the correct dimension
-
+        z_t = self.encoder(x_t)[:, 0, :]
+        z_tp1_target = self.encoder(x_tp1)[:, 0, :]
+        # print(f"x_t dim : {x_t.shape} ; x_tp1 dim : {x_tp1.shape}")
+        # Add a sequence dimension: [32, 64] -> [32, 1, 64]
+        z_t_seq = z_t.unsqueeze(1) 
+        # Pass through predictor and remove the sequence dimension: [32, 1, 64] -> [32, 64]
+        z_tp1_pred = self.predictor(z_t_seq, a_t).squeeze(1)
+        print(f"z_t dim : {z_t.shape} ; z_tp1 dim : {z_tp1_target.shape} ; z_tp1_p dim : {z_tp1_pred.shape}")
         # Prediction Loss
         loss_pred = F.mse_loss(z_tp1_pred, z_tp1_target.detach())
 
         # Anti-Collapse Loss
         loss_sigreg = self.compute_sigreg(z_t)
 
-        if isinstance(self.policy, AttentionPPO) or isinstance(self.policy, ConvPPO):
+        if isinstance(self.policy.network, AttentionPPO) or isinstance(self.policy.network, ConvPPO):
             # to handle differently
             trajectory = self.compute_trajectory(z_t, horizon=self.horizon)
             loss_policy = self.policy.update_parameters(trajectory = trajectory)
         else:
-            loss_policy = self.policy.update_parameters(init_state = z_t, next_state = z_tp1, rewards = r_t, dones = done)
+            loss_policy = self.policy.update_parameters(init_state = z_t.unsqueeze(1).detach(), next_state = z_tp1.unsqueeze(1).detach(), rewards = r_t.to(device=device), dones = done.to(device))
 
         # Total multi-task execution loss
         # Since the losses are actually decoupled
         # We can just sum them as they are
         total_loss = (
             loss_pred + 
-            loss_policy['loss'] + 
             alpha * loss_sigreg
         )
 
