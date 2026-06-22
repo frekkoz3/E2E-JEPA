@@ -20,10 +20,10 @@ policy:
   epsilon_coeff : 0.9995
 
 policy-network:
-  input_dim : 4
+  input_dim : 8
   output_dim : 4
   num_hidden_layer : 2
-  dim_hidden_layer : [16, 16]
+  dim_hidden_layer : [64, 32]
 
 policy-loss:
   loss : "MSELoss"

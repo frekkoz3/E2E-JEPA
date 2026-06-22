@@ -528,18 +528,29 @@ class PolicyDQN(Policy):
 
         # Find 1 for head, 2 for food.
         if bracket:
-            head_indices = (state_tensor == 2).nonzero(as_tuple=True)
+            head_indices = (state_tensor == 2).nonzero(as_tuple=True)   # fixed swap
             food_indices = (state_tensor == 1).nonzero(as_tuple=True)
 
-            # Negative indexing extracts Y and X from the last two dimensions safely
-            head_y = head_indices[-2][0] if len(head_indices[-2]) > 0 else torch.tensor(0.0, device=self.device)
-            head_x = head_indices[-1][0] if len(head_indices[-1]) > 0 else torch.tensor(0.0, device=self.device)
+            head_y = head_indices[-2][0].float() if len(head_indices[-2]) > 0 else torch.tensor(0., device=self.device)
+            head_x = head_indices[-1][0].float() if len(head_indices[-1]) > 0 else torch.tensor(0., device=self.device)
+            food_y = food_indices[-2][0].float() if len(food_indices[-2]) > 0 else torch.tensor(0., device=self.device)
+            food_x = food_indices[-1][0].float() if len(food_indices[-1]) > 0 else torch.tensor(0., device=self.device)
 
-            food_y = food_indices[-2][0] if len(food_indices[-2]) > 0 else torch.tensor(0.0, device=self.device)
-            food_x = food_indices[-1][0] if len(food_indices[-1]) > 0 else torch.tensor(0.0, device=self.device)
+            # Relative food position (generalises better than absolute food coords)
+            delta_x = food_x - head_x
+            delta_y = food_y - head_y
 
-            # Inject the batch dimension here
-            state_brack = torch.tensor([head_x, head_y, food_x, food_y], dtype=torch.float32, device=self.device).unsqueeze(0)
+            # Current direction as one-hot over {UP, DOWN, LEFT, RIGHT}
+            direction_map = {(0, -1): 0, (0, 1): 1, (-1, 0): 2, (1, 0): 3}
+            dir_idx = direction_map.get(self.environment.direction, 0)
+            dir_onehot = torch.zeros(4, dtype=torch.float32, device=self.device)
+            dir_onehot[dir_idx] = 1.0
+
+            # 8-dim state: [head_x, head_y, Δx, Δy, dir_UP, dir_DOWN, dir_LEFT, dir_RIGHT]
+            state_brack = torch.cat([
+                torch.stack([head_x, head_y, delta_x, delta_y]),
+                dir_onehot
+            ]).unsqueeze(0)   # shape [1, 8]
 
             return state_brack
 
