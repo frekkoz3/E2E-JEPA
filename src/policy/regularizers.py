@@ -51,3 +51,18 @@ class EpsilonConstant(EpsilonGreedy):
         super().__init__(epsilon_start=kwargs.get("epsilon_start", 1.0),
                          epsilon_coeff=1.0,
                          epsilon_end=kwargs.get("epsilon_end", 0.0))
+
+class Regularizer:
+    pass
+
+
+class ExponentialRegularizer(Regularizer):
+    pass
+
+
+class LinearRegularizer(Regularizer):
+    pass
+
+
+class PropToEncoderLossRegularizer(Regularizer):
+    pass

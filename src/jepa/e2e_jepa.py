@@ -14,6 +14,7 @@ from typing import Dict, Any, Tuple
 
 from src.game.snake import SnakeEnv
 from src.policy.algorithms import ConvPPO, AttentionPPO
+from src.policy.regularizers import *
 from src.policy.policy import Policy
 
 
@@ -76,6 +77,8 @@ class ActiveE2EJEPATrainer:
         buffer_capacity: int = 20000,
         coupled_dynamic = False,
         horizon : int = 1,
+        alpha: float = 0.1,
+        pol_loss_regularizer: Regularizer
     ):
         self.env = env
         self.encoder = encoder
@@ -86,6 +89,9 @@ class ActiveE2EJEPATrainer:
         self.horizon = horizon
         
         self.buffer = OnlineTrajectoryBuffer(capacity=buffer_capacity)
+
+        self.alpha = alpha
+        self.pol_loss_regularizer = pol_loss_regularizer
 
         if coupled_dynamic:
             self.optimizer = torch.optim.AdamW(

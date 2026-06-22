@@ -23,7 +23,7 @@ from collections import deque
 import gymnasium as gym
 
 from src.policy.algorithms import *
-from src.policy.epsilon import *
+from src.policy.regularizers import *
 from src.policy.losses import *
 
 from src.game.snake import *
@@ -574,7 +574,8 @@ class PolicyDQN(Policy):
     @torch.no_grad()
     def get_action(self,
                    state : torch.Tensor | Tuple[torch.Tensor, ...],
-                   greedy : bool = False) -> Tuple[torch.Tensor | Any, tuple[Any, Any]]:
+                   greedy : bool = False,
+                   temperature : float | int = 1) -> Tuple[torch.Tensor | Any, tuple[Any, Any]]:
         """Selects an action based on the current state using an epsilon-greedy strategy."""
         if not greedy and np.random.rand() < self.epsilon_strategy.eps:
             q_values = None
