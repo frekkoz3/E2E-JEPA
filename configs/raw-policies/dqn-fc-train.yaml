@@ -9,6 +9,7 @@ environment:
   reward_food : 20
   reward_death :  -20
   reward_step : 0.1
+  ciao : False
 
 policy:
   network : "DQN"
