@@ -18,7 +18,7 @@ import argparse
 import numpy as np
 import uuid
 
-TOTAL_EPOCHS = 15
+TOTAL_EPOCHS = 20
 STEPS_PER_EPOCH = 256
 BATCH_SIZE = 32
 ACTION_DIM = 4

@@ -109,9 +109,9 @@ class ActiveE2EJEPATrainer:
         setattr(self, name, tensor)
 
 
-    def get_action(self, state: torch.Tensor) -> Tuple[torch.Tensor | Any, tuple[Any, Any]]:
+    def get_action(self, state: torch.Tensor, greedy = False) -> Tuple[torch.Tensor | Any, tuple[Any, Any]]:
         """Phase-Based Exploration: Generates actions on live frames."""
-        action, info = self.policy.get_action(state=state, greedy=False)
+        action, info = self.policy.get_action(state=state, greedy=greedy)
         return action, info
 
 
@@ -193,7 +193,6 @@ class ActiveE2EJEPATrainer:
         z_t_seq = z_t.unsqueeze(1) 
         # Pass through predictor and remove the sequence dimension: [32, 1, 64] -> [32, 64]
         z_tp1_pred = self.predictor(z_t_seq, a_t).squeeze(1)
-        print(f"z_tp1 dim : {z_tp1_target.shape} ; z_tp1_pred dim : {z_tp1_pred.shape}")
         # Prediction Loss
         loss_pred = F.mse_loss(z_tp1_pred, z_tp1_target.detach())
 
