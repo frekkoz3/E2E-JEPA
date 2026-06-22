@@ -585,80 +585,6 @@ class PolicyDQN(Policy):
         return action, (q_values.cpu().detach().numpy() if q_values is not None else None)
 
 
-    # def train(self, init_state, n_trajectories):
-    #     """DQN full training loop"""
-    #
-    #     self._full_buffer()
-    #
-    #     # 4. Sample a random, decorrelated mini-batch
-    #     batch = random.sample(self.buffer, self.batch_size)
-    #
-    #     # print(batch[0])
-    #
-    #     b_states, b_actions, b_rewards, b_next_states, b_dones = zip(*batch)
-    #
-    #     # Use torch.cat for states since they already have shape (1, 4)
-    #     b_states = torch.cat(b_states, dim=0).to(self.device)
-    #     b_next_states = torch.cat(b_next_states, dim=0).to(self.device)
-    #
-    #     # Keep torch.stack for scalars (actions, rewards, dones)
-    #     b_actions = torch.stack(b_actions).to(self.device)
-    #     b_rewards = torch.stack(b_rewards).to(self.device)
-    #     b_dones = torch.stack(b_dones).to(self.device)
-    #
-    #     # 5. Compute Q-values and optimize
-    #     q_values = self.network(b_states)
-    #     current_q = q_values.gather(1, b_actions.unsqueeze(1)).squeeze(1)
-    #
-    #     with torch.no_grad():
-    #         next_q_values = self.target_network(b_next_states)
-    #         max_next_q = next_q_values.max(dim=1)[0]
-    #         target_q = b_rewards + (self.reward_discount * max_next_q * (1 - b_dones))
-    #
-    #     td_loss = self.loss(current_q, target_q)
-    #
-    #     self.optimizer.zero_grad()
-    #     td_loss.backward()
-    #     nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=1.0)
-    #     self.optimizer.step()
-    #
-    #     if self.scheduler:
-    #         self.scheduler.step()
-    #     self.epsilon_strategy.step()
-    #
-    #     if (self.epoch + 1) % self.target_net_update_freq == 0:
-    #         self.target_network.load_state_dict(self.network.state_dict())
-    #     self.epoch += 1
-    #
-    #     # info = {"loss": td_loss.item(), "mean_value": current_q.mean().item()}
-    #     with torch.no_grad():
-    #         q_std = current_q.std().item()
-    #         q_max = current_q.max().item()
-    #         q_min = current_q.min().item()
-    #
-    #     info = {
-    #         "loss": td_loss.item(),
-    #         "mean_value": current_q.mean().item(),
-    #         "q_std": q_std,
-    #         "q_max": q_max,
-    #         "q_min": q_min,
-    #     }
-    #     if self.epoch % 50 == 0:
-    #         self.buffer.clear()
-    #
-    #     if self.epoch % 50 == 0:
-    #          # Clear the buffer every 50 episodes to ensure fresh data collection and prevent overfitting to old transitions
-    #         print(
-    #             f"Episode {self.epoch + 1}/{n_trajectories}"
-    #             f" | Loss: {info['loss']:.4f}"
-    #             f" | MeanQ: {info['mean_value']:.4f}"
-    #             f" | StdQ: {info['q_std']:.4f}"
-    #             f" | MaxQ: {info['q_max']:.4f}"
-    #             f" | MinQ: {info['q_min']:.4f}"
-    #             f" | Epsilon: {self.epsilon_strategy.eps:.4f}"
-    #         )
-    #     return info
-
     def train(self, init_state, n_trajectories):
         """Collect one episode, add every transition to the rolling buffer,
         then do one gradient step per transition (if buffer is warm)."""
@@ -739,92 +665,6 @@ class PolicyDQN(Policy):
         return info
 
 
-
-
-    # def train(self, init_state, n_trajectories):
-    #     """DQN training loop for a single trajectory."""
-    #     state = self._format_state(init_state)
-    #     is_terminal = False
-    #
-    #     loss_history = []
-    #     q_history = []
-    #
-    #     # 1. Step through the environment dynamically
-    #     while not is_terminal:
-    #         # Action selection incorporates the actively decaying epsilon
-    #         action, _ = self.get_action(state, greedy=False)
-    #
-    #         # Environment step
-    #         next_state, reward, done, truncated, _ = self.environment.step(action)
-    #         is_terminal = done or truncated
-    #         next_state_formatted = self._format_state(next_state)
-    #
-    #         # 2. Store the transition in the rolling buffer
-    #         action_t = torch.tensor(action, dtype=torch.int64, device=self.device)
-    #         reward_t = torch.tensor(reward, dtype=torch.float32, device=self.device)
-    #         is_terminal_t = torch.tensor(is_terminal, dtype=torch.float32, device=self.device)
-    #
-    #         self.buffer.append((state, action_t, reward_t, next_state_formatted, is_terminal_t))
-    #         state = next_state_formatted
-    #
-    #         # 3. Optimize network weights per step (if buffer is warm)
-    #         if len(self.buffer) >= self.batch_size:
-    #             batch = random.sample(self.buffer, self.batch_size)
-    #
-    #             # removethe sampled transitions from the buffer to ensure that each transition is used only once for training
-    #             for transition in batch:
-    #                 self.buffer.remove(transition)
-    #             b_states, b_actions, b_rewards, b_next_states, b_dones = zip(*batch)
-    #
-    #             b_states = torch.cat(b_states, dim=0).to(self.device)
-    #             b_next_states = torch.cat(b_next_states, dim=0).to(self.device)
-    #             b_actions = torch.stack(b_actions).to(self.device)
-    #             b_rewards = torch.stack(b_rewards).to(self.device)
-    #             b_dones = torch.stack(b_dones).to(self.device)
-    #
-    #             q_values = self.network(b_states)
-    #             current_q = q_values.gather(1, b_actions.unsqueeze(1)).squeeze(1)
-    #
-    #             with torch.no_grad():
-    #                 next_q_values = self.target_network(b_next_states)
-    #                 max_next_q = next_q_values.max(dim=1)[0]
-    #                 target_q = b_rewards + (self.reward_discount * max_next_q * (1 - b_dones))
-    #
-    #             td_loss = self.loss(current_q, target_q)
-    #
-    #             self.optimizer.zero_grad()
-    #             td_loss.backward()
-    #             nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=1.0)
-    #             self.optimizer.step()
-    #
-    #             loss_history.append(td_loss.item())
-    #             q_history.append(current_q.mean().item())
-    #
-    #             # Target network update (now occurs every X steps, rather than episodes)
-    #             if self.epoch % self.target_net_update_freq == 0:
-    #                 self.target_network.load_state_dict(self.network.state_dict())
-    #             self.epoch += 1
-    #
-    #     # 4. Step schedulers once per completed trajectory
-    #     if self.scheduler:
-    #         self.scheduler.step()
-    #     self.epsilon_strategy.step()
-    #
-    #     info = {
-    #         "loss": np.mean(loss_history) if loss_history else 0.0,
-    #         "mean_value": np.mean(q_history) if q_history else 0.0,
-    #     }
-    #
-    #     if self.epoch % 50 == 0:
-    #         print(
-    #             f"Episode {self.epoch + 1}/{n_trajectories}"
-    #             f" | Loss: {info['loss']:.4f}"
-    #             f" | MeanQ: {info['mean_value']:.4f}"
-    #             f" | Epsilon: {self.epsilon_strategy.eps:.4f}"
-    #         )
-    #     return info
-
-
     def update_parameters(self,
                           init_state : torch.Tensor | Tuple[torch.Tensor, ...],
                           next_state : torch.Tensor | Tuple[torch.Tensor],
@@ -847,11 +687,10 @@ class PolicyDQN(Policy):
 
         Returns
         -------
-        loss : Dict[str,  float]
+        loss : Dict[str, float]
             A dictionary containing the computed losses for monitoring and analysis.
         """
         # Compute Q-Values for the initial state
-        print(f"init state dim : {init_state.shape}")
         q_values = self.network(init_state)
         online_q_values = q_values.gather(1, torch.argmax(q_values, dim=-1, keepdim=True)).squeeze(-1)
 
