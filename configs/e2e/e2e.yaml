@@ -2,6 +2,7 @@ environment:
   environment : "Snake"
   n_environments: 1
   n_obstacles : 10
+  max_step : 1000
 
   render_mode : "rgb_array"
   observation_type : "image"
@@ -25,12 +26,12 @@ encoder:
   enc_n_heads : 4
   enc_depth : 3
   enc_patch_size : 16
-  enc_path_in_channels : 3
+  enc_patch_in_channels : 3
 
 
 predictor:
-  hidden_dim : 64
-  cond_dim : 1
+  pred_hidden_dim : 64
+  pred_cond_dim : 1
   pred_mlp_dim : 256
   pred_n_heads : 4
   pred_depth : 3
