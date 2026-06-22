@@ -12,11 +12,13 @@ from src.policy.policy import Policy, PolicyDQN, PolicyPPO
 from src.game.snake import SnakeEnv, TOTAL_HEIGHT, WIDTH, CELL_SIZE
 from src.jepa.e2e_jepa import *
 from src.utils.utils import *
+import time
 import cv2
 import argparse
 import numpy as np
+import uuid
 
-TOTAL_EPOCHS = 12
+TOTAL_EPOCHS = 20
 STEPS_PER_EPOCH = 256
 BATCH_SIZE = 32
 ACTION_DIM = 4
@@ -28,12 +30,16 @@ GPU = "cuda"
 CPU = "cpu"
 XPU = "xpu"
 
+DEFAULT_SAVE_LOCATION = f"models/{time.time()} - {uuid.uuid1()}.pkl"
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Active E2E-JEPA Training for Snake Game")
     parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file.")
+    parser.add_argument("--where", type=str, required=False, help="Where are the stored models' weights.", default=DEFAULT_SAVE_LOCATION)
     args = parser.parse_args()
 
     config_path = args.config
+    where_save = args.where
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     config = flat_config(config)
@@ -62,8 +68,6 @@ if __name__ == '__main__':
         with torch.no_grad():
 
             for step in range(STEPS_PER_EPOCH):
-                print(f"STEP : {step}")
-
                 z_t = trainer.encoder(x_t)[:, 0, :]
                 
                 # Choose action actively using current model state
@@ -80,13 +84,10 @@ if __name__ == '__main__':
 
                 z_tp1 = trainer.encoder(x_tp1)[:, 0, :]
 
-                print(f"z_t dim : {z_t.shape} ; z_tp1 dim : {z_tp1.shape}")
-
                 # Stream data into the experience buffer seamlessly
                 trainer.buffer.push(x_t.squeeze(0).to(device=CPU), torch.tensor(a_t).float().to(device=CPU), r_t, x_tp1.squeeze(0).to(device=CPU), float(done))
                 
                 if done:
-                    print("Dead")       
                     # Reset        
                     x_t, _ = env.reset()
                     x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=GPU)
@@ -94,10 +95,9 @@ if __name__ == '__main__':
                     # Move forward
                     x_t = x_tp1
             
-            print(f"EPOCH : {epoch}")
-
         # Optimize over collected transitions at the end of the epoch step block
         metrics = trainer.update_parameters(BATCH_SIZE, epoch, TOTAL_EPOCHS, device = GPU)
-        print(epoch)
         if metrics:
             print(f"Epoch {epoch} Metrics -> Loss: {metrics['total_loss']:.8f} | Pred: {metrics['pred_loss']:.8f} | Policy : {metrics['policy_loss']:.8f}")
+
+        save_results(where_save, trainer.predictor, trainer.encoder, trainer.policy.network)

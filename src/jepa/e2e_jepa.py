@@ -16,6 +16,20 @@ from src.game.snake import SnakeEnv
 from src.policy.algorithms import ConvPPO, AttentionPPO
 from src.policy.policy import Policy
 
+
+def save_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module):
+    torch.save({
+        "predictor": predictor.state_dict(), 
+        "encoder": encoder.state_dict(), 
+        "policy_net": policy_net.state_dict()
+    }, where)
+
+def load_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module):
+    ldr = torch.load(where, weights_only=False)
+    predictor.load_state_dict(ldr["predictor"])
+    encoder.load_state_dict(ldr["encoder"])
+    policy_net.load_state_dict(ldr["policy_net"])
+
 # Experience Replay Buffer for Online Trajectories
 class OnlineTrajectoryBuffer:
     """Stores online transitions and serves randomized mini-batches 
@@ -95,9 +109,9 @@ class ActiveE2EJEPATrainer:
         setattr(self, name, tensor)
 
 
-    def get_action(self, state: torch.Tensor) -> Tuple[torch.Tensor | Any, tuple[Any, Any]]:
+    def get_action(self, state: torch.Tensor, greedy = False) -> Tuple[torch.Tensor | Any, tuple[Any, Any]]:
         """Phase-Based Exploration: Generates actions on live frames."""
-        action, info = self.policy.get_action(state=state, greedy=False)
+        action, info = self.policy.get_action(state=state, greedy=greedy)
         return action, info
 
 
@@ -173,15 +187,12 @@ class ActiveE2EJEPATrainer:
         alpha = 0.1
     
         # Latent Mappings
-        print(self.encoder.cls_token.device)
-        print(x_t.device)
         z_t = self.encoder(x_t)[:, 0, :]
         z_tp1_target = self.encoder(x_tp1)[:, 0, :]
         # Add a sequence dimension: [32, 64] -> [32, 1, 64]
         z_t_seq = z_t.unsqueeze(1) 
         # Pass through predictor and remove the sequence dimension: [32, 1, 64] -> [32, 64]
         z_tp1_pred = self.predictor(z_t_seq, a_t).squeeze(1)
-        print(f"z_t dim : {z_t.shape} ; z_tp1 dim : {z_tp1_target.shape} ; z_tp1_p dim : {z_tp1_pred.shape}")
         # Prediction Loss
         loss_pred = F.mse_loss(z_tp1_pred, z_tp1_target.detach())
 
@@ -194,7 +205,7 @@ class ActiveE2EJEPATrainer:
             loss_policy = self.policy.update_parameters(trajectory = trajectory)
         else:
             loss_policy = self.policy.update_parameters(init_state = z_t.unsqueeze(1).detach(), next_state = z_tp1_target.unsqueeze(1).detach(), rewards = r_t, dones = done)
-
+ 
         # Total multi-task execution loss
         # Since the losses are actually decoupled
         # We can just sum them as they are
@@ -213,7 +224,7 @@ class ActiveE2EJEPATrainer:
         x_tp1 = x_tp1.to(device="cpu")
         done = done.to(device="cpu")
 
-        return {"total_loss": total_loss.item(), "pred_loss": loss_pred.item(), "policy_loss": loss_policy.item()}
+        return {"total_loss": total_loss.item(), "pred_loss": loss_pred.item(), "policy_loss":  loss_policy.item()}
 
 if __name__ == "__main__":
     pass

@@ -698,9 +698,7 @@ class PolicyDQN(Policy):
         with torch.no_grad():
             next_q_values = self.target_network(next_state)
             max_next_q_values, _ = torch.max(next_q_values, dim=-1)
-            print(f"{max_next_q_values.device}, {dones.device}")
-            target_q_values = rewards + self.reward_discount * max_next_q_values * (1 - dones)
-            
+            target_q_values = rewards.squeeze(-1) + self.reward_discount * max_next_q_values.squeeze(-1) * (1 - dones.squeeze(-1))
 
         # Compute the loss (MSE) between online and target Q-Values
         loss = self.loss(online_q_values, target_q_values)
