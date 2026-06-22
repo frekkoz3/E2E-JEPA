@@ -1,10 +1,3 @@
-r"""
-  _____ ____  _____          _ _____ ____   _    
- | ____|___ \| ____|        | | ____|  _ \ / \   
- |  _|   __) |  _| _____ _  | |  _| | |_) / _ \  
- | |___ / __/| |__|_____| |_| | |___|  __/ ___ \ 
- |_____|_____|_____|     \___/|_____|_| /_/   \_\
-"""
 import yaml
 
 from src.jepa.transformers import VisualTransformer, Transformer
@@ -17,13 +10,10 @@ import cv2
 import argparse
 import numpy as np
 import uuid
+import torch
 
-TOTAL_EPOCHS = 20
-STEPS_PER_EPOCH = 256
-BATCH_SIZE = 32
 ACTION_DIM = 4
-REFRESH_BUFFER = 8
-IMG_SIZE = (WIDTH, TOTAL_HEIGHT,3)
+IMG_SIZE = (WIDTH, TOTAL_HEIGHT, 3)
 EMBED_DIM = 64
 
 GPU = "cuda"
@@ -36,7 +26,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Active E2E-JEPA Training for Snake Game")
     parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file.")
     parser.add_argument("--where", type=str, required=False, help="Where are the stored models' weights.", default=DEFAULT_SAVE_LOCATION)
+
+    parser.add_argument("--total_epochs", type=int, required=False, default=5000, help="Total number of epochs for training")
+    parser.add_argument("--steps_per_epoch", type=int, required=False, default=256, help="Number of steps per epoch")
+    parser.add_argument("--batch_size", type=int, required=False, default=32, help="Batch size for training")
+    parser.add_argument("--refresh_buffer", type=int, required=False, default=8, help="Epoch interval to refresh the buffer")
+    
     args = parser.parse_args()
+
+    # Assign parsed arguments to variables
+    TOTAL_EPOCHS = args.total_epochs
+    STEPS_PER_EPOCH = args.steps_per_epoch
+    BATCH_SIZE = args.batch_size
+    REFRESH_BUFFER = args.refresh_buffer
 
     config_path = args.config
     where_save = args.where
@@ -44,10 +46,9 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
     config = flat_config(config)
 
-    
     trainer = ActiveE2EJEPATrainer(
         env=SnakeEnv(**config),
-        encoder=VisualTransformer(img_size=IMG_SIZE, embed_dim=EMBED_DIM, patch_size=CELL_SIZE, mlp_dim=256, num_heads=4, depth = 3).to(device=GPU), 
+        encoder=VisualTransformer(img_size=IMG_SIZE, embed_dim=EMBED_DIM, patch_size=CELL_SIZE, mlp_dim=256, num_heads=4, depth=3).to(device=GPU), 
         predictor=Transformer(input_dim=EMBED_DIM, hidden_dim=EMBED_DIM, cond_dim=1, output_dim=EMBED_DIM, depth=3, num_heads=4, mlp_dim=256, use_adaLN=True).to(device=GPU),
         policy=eval(config["name"])(**config),
         action_dim=ACTION_DIM,
@@ -96,7 +97,7 @@ if __name__ == '__main__':
                     x_t = x_tp1
             
         # Optimize over collected transitions at the end of the epoch step block
-        metrics = trainer.update_parameters(BATCH_SIZE, epoch, TOTAL_EPOCHS, device = GPU)
+        metrics = trainer.update_parameters(BATCH_SIZE, epoch, TOTAL_EPOCHS, device=GPU)
         if metrics:
             print(f"Epoch {epoch} Metrics -> Loss: {metrics['total_loss']:.8f} | Pred: {metrics['pred_loss']:.8f} | Policy : {metrics['policy_loss']:.8f}")
 
