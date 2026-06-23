@@ -92,7 +92,7 @@ if __name__ == '__main__':
     metrics_collector = MetricsCollector()
 
     trainer = E2EJEPA(
-        env=SnakeEnv(difficulty=difficulty, **config),
+        env=SnakeEnv(**config),
         encoder=VisualTransformer(img_size=img_size,
                                   embed_dim=embed_dim,
                                   patch_size=cell_size,
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         embed_dim=embed_dim
     )
     
-    env = SnakeEnv(render_mode="rgb_array", observation_type="image")
+    env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=difficulty)
     x_t, _ = env.reset()
     x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
 
