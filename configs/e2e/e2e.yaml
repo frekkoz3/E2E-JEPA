@@ -69,7 +69,7 @@ policy:
 
 
 training:
-  device : "cuda"
+  device : "cpu"
 
   n_epochs : 5000
   steps_per_epoch : 256

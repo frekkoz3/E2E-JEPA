@@ -140,7 +140,11 @@ if __name__ == '__main__':
                 z_tp1 = trainer.encoder(x_tp1)[:, 0, :]
 
                 # Stream data into the experience buffer seamlessly
-                trainer.buffer.push(x_t.squeeze(0).to(device=CPU), torch.tensor(a_t).float().to(device=CPU), r_t, x_tp1.squeeze(0).to(device=CPU), float(done))
+                trainer.buffer.push(x_t.squeeze(0).to(device=CPU),
+                                    torch.tensor(a_t).float().to(device=CPU),
+                                    r_t,
+                                    x_tp1.squeeze(0).to(device=CPU),
+                                    float(done))
                 
                 if done:
                     # Reset        
@@ -151,13 +155,20 @@ if __name__ == '__main__':
                     x_t = x_tp1
             
         # Optimize over collected transitions at the end of the epoch step block
-        metrics = trainer.update_parameters(batch_size, epoch, total_epochs, device=device)
+        metrics = trainer.update_parameters(batch_size, device=device)
         if metrics:
-            print(f"Epoch {epoch} Metrics -> Loss: {metrics['total_loss']:.8f} | Pred: {metrics['pred_loss']:.8f} | Policy : {metrics['policy_loss']:.8f} | SigReg: {metrics['sigreg_loss']:.8f}")
+            print(f"Epoch {epoch} Metrics -> "
+                  f"Loss: {metrics['total_loss']:.8f} | "
+                  f"Pred: {metrics['pred_loss']:.8f} | "
+                  f"Policy : {metrics['policy_loss']:.8f} | "
+                  f"SigReg: {metrics['sigreg_loss']:.8f}")
 
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:
-            save_results(f"{where_save}{epoch//epochs_per_checkpoint}.pkl", trainer.predictor, trainer.encoder, trainer.policy.network)
+            save_results(f"{where_save}{epoch//epochs_per_checkpoint}.pkl",
+                         trainer.predictor,
+                         trainer.encoder,
+                         trainer.policy.network)
             if clean_checkpoints:
                 old = Path(f"{where_save}{epoch//epochs_per_checkpoint - 1}.pkl")
                 if old.exists():

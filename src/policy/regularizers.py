@@ -147,3 +147,46 @@ class PropToOtherLossRegularizer(Regularizer):
         return float(value_reg.item())
 
 
+class PropToOtherLossChangeRegularizer(Regularizer):
+    """
+    A regularizer that takes  old and new values of a target loss `LossTarget`.
+    The regularization value `ValueReg` will be the inverse of the percentage absolute magnitude change between the two values:
+
+            ValueReg = log10( LossTarget(old) / | log10(LossTarget(new)) - log10(LossTarget(old)) |
+
+    This allows the regularized loss to scale inversely w.r.t. LossTarget.
+    Useful for scaling the Policy Loss so that it is small when Prediction Loss is high, and viceversa.
+
+    Notes
+    -----
+    When given a Batch of point-wise losses, ValueReg is computed from the mean loss among the batch.
+    Magnitude change is clamped to [1e-6, 100] to avoid extreme values.
+    """
+
+    def __init__(self, eps : float | int = 1e-8, max_weight : float | int = 100.0):
+        self.eps = eps
+        self.max_weight = max_weight
+        self.old_loss_target = None
+
+    def step(self, loss_target : torch.Tensor, **kwargs) -> float | int:
+        """Computes the regularization value based on the change in magnitude of the target loss."""
+        current_log_loss = torch.log10(loss_target.detach() + self.eps).mean()
+
+        if self.old_loss_target is None:
+            self.old_loss_target = current_log_loss.item() # Store as float, not tensor
+            return 1.0
+
+        change = abs(current_log_loss.item() - self.old_loss_target)
+        change = max(change, self.eps)
+
+        numerator = abs(current_log_loss.item())
+
+        value_reg = numerator / change
+
+        self.old_loss_target = current_log_loss.item()
+
+        # 4. Cap the maximum possible weight to prevent destabilizing training
+        return min(float(value_reg), self.max_weight)
+
+
+

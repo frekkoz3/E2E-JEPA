@@ -78,7 +78,8 @@ class E2EJEPA:
         coupled_dynamic = False,
         horizon : int = 1,
         alpha: Regularizer = LinearRegularizer(reg_weight_start=1, reg_weight_end=1, reg_weight_step=1),
-        pol_loss_regularizer: Regularizer = None
+        beta : Regularizer | None = None,
+        pol_loss_regularizer: Regularizer | None = None
     ):
         self.env = env
         self.encoder = encoder
@@ -91,7 +92,8 @@ class E2EJEPA:
         self.buffer = OnlineTrajectoryBuffer(capacity=buffer_capacity)
 
         self.alpha = alpha
-        self.pol_loss_regularizer = pol_loss_regularizer
+        self.beta = beta
+        self.gamma = pol_loss_regularizer
 
         if coupled_dynamic:
             self.optimizer = torch.optim.AdamW(
@@ -171,7 +173,7 @@ class E2EJEPA:
             return torch.mean((h_std - 1.0) ** 2) + torch.mean(h_mean ** 2)
 
 
-    def update_parameters(self, batch_size: int, epoch: int, total_epochs: int, device : str = "cuda") -> Dict[str, float]:
+    def update_parameters(self, batch_size: int, device : str = "cuda") -> Dict[str, float]:
         """Samples from active trajectory memory and performs backpropagation."""
         if len(self.buffer) < batch_size:
             return {} # Not enough data collected yet
@@ -198,7 +200,9 @@ class E2EJEPA:
         z_tp1_pred = self.predictor(z_t_seq, a_t).squeeze(1)
 
         # Collapsing Check
-        print(f"Batch {0}, Element {0}: z_t : {z_t[0][0].cpu().detach().numpy()} \t\t z_tp1_target : {z_tp1_target[0][0].cpu().detach().numpy()} \t\t z_tp1_pred : {z_tp1_pred[0][0].cpu().detach().numpy()}\n")
+        print(f"Batch {0}, Element {0}: z_t : {z_t[0][0].cpu().detach().numpy()} \t\t "
+              f"z_tp1_target : {z_tp1_target[0][0].cpu().detach().numpy()} \t\t "
+              f"z_tp1_pred : {z_tp1_pred[0][0].cpu().detach().numpy()}\n")
 
         # Prediction Loss
         loss_pred = F.mse_loss(z_tp1_pred, z_tp1_target.detach())
@@ -215,7 +219,7 @@ class E2EJEPA:
                                                         next_state = z_tp1_target.unsqueeze(1).detach(),
                                                         rewards = r_t,
                                                         dones = done,
-                                                        reg_coeff = self.pol_loss_regularizer.step() if self.pol_loss_regularizer else 1.0)
+                                                        reg_coeff = self.gamma.step() if self.gamma else 1.0)
 
         # Total multi-task execution loss
         # Since the losses are actually decoupled
