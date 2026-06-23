@@ -153,7 +153,7 @@ if __name__ == '__main__':
         # Optimize over collected transitions at the end of the epoch step block
         metrics = trainer.update_parameters(batch_size, epoch, total_epochs, device=device)
         if metrics:
-            print(f"Epoch {epoch} Metrics -> Loss: {metrics['total_loss']:.8f} | Pred: {metrics['pred_loss']:.8f} | Policy : {metrics['policy_loss']:.8f}")
+            print(f"Epoch {epoch} Metrics -> Loss: {metrics['total_loss']:.8f} | Pred: {metrics['pred_loss']:.8f} | Policy : {metrics['policy_loss']:.8f} | SigReg: {metrics['sigreg_loss']:.8f}")
 
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:
