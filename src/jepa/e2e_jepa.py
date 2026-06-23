@@ -78,7 +78,7 @@ class ActiveE2EJEPATrainer:
         coupled_dynamic = False,
         horizon : int = 1,
         alpha: float = 0.1,
-        pol_loss_regularizer: Regularizer
+        pol_loss_regularizer: Regularizer = None
     ):
         self.env = env
         self.encoder = encoder

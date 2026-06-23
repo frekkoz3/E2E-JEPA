@@ -27,11 +27,12 @@ GPU = "cuda"
 CPU = "cpu"
 XPU = "xpu"
 
-DEFAULT_SAVE_LOCATION = f"models/exp1.pkl"#f"models/{time.time()} - {uuid.uuid1()}.pkl"
+DEFAULT_SAVE_LOCATION = f"models/e2e/exp2.pkl"#f"models/{time.time()} - {uuid.uuid1()}.pkl"
+DEFAULT_CFG_LOCATION = f"configs/raw-policies/dqn-conv-train.yaml"       
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Active E2E-JEPA Training for Snake Game")
-    parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file.")
+    parser.add_argument("--config", type=str, required=False, help="Path to the YAML configuration file.", default=DEFAULT_CFG_LOCATION)
     parser.add_argument("--where", type=str, required=False, help="Where are the stored models' weights.", default=DEFAULT_SAVE_LOCATION)
     args = parser.parse_args()
 
@@ -46,7 +47,7 @@ if __name__ == '__main__':
         env=SnakeEnv(**config),
         encoder=VisualTransformer(img_size=IMG_SIZE, embed_dim=EMBED_DIM, patch_size=CELL_SIZE, mlp_dim=256, num_heads=4, depth = 3).to(device=GPU), 
         predictor=Transformer(input_dim=EMBED_DIM, hidden_dim=EMBED_DIM, cond_dim=1, output_dim=EMBED_DIM, depth=3, num_heads=4, mlp_dim=256, use_adaLN=True).to(device=GPU),
-        policy=eval(config["name"])(**config),
+        policy=eval(config["pol_type"])(**config),
         action_dim=ACTION_DIM,
         embed_dim=EMBED_DIM
     )
