@@ -62,8 +62,8 @@ class OnlineTrajectoryBuffer:
         return len(self.buffer)
 
 
-# E2E-JEPA Trainer
-class ActiveE2EJEPATrainer:
+# E2E-JEPA
+class E2EJEPA:
     def __init__(
         self,
         env : SnakeEnv,

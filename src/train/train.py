@@ -1,3 +1,10 @@
+r"""
+  _____ ____  _____          _ _____ ____   _    
+ | ____|___ \| ____|        | | ____|  _ \ / \   
+ |  _|   __) |  _| _____ _  | |  _| | |_) / _ \  
+ | |___ / __/| |__|_____| |_| | |___|  __/ ___ \ 
+ |_____|_____|_____|     \___/|_____|_| /_/   \_\
+"""
 import yaml
 import time
 import cv2 #will need for registration maybe
@@ -9,12 +16,12 @@ import shutil
 from pathlib import Path
 
 from src.jepa.transformers import VisualTransformer, Transformer
-from src.game.snake import SnakeEnv, TOTAL_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT
+from src.game.snake import SnakeEnv, TOTAL_HEIGHT, GRID_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT
 from src.policy.policy import Policy, PolicyDQN, PolicyPPO
 from src.jepa.e2e_jepa import *
 from src.utils.utils import *
 
-ACTION_DIM = 4
+action_dim = 4
 EMBED_DIM = 64
 
 GPU = "cuda"
@@ -25,6 +32,11 @@ RUN_NAME = f"{time.time()} - {uuid.uuid1()}"
 DEFAULT_SAVE_LOCATION = f"models/e2e/{RUN_NAME}/"
 
 if __name__ == '__main__':
+    """
+        Quick usage (from the root of the project)
+
+        py -m src.train.train --config PATH-TO-CONFIG
+    """   
     parser = argparse.ArgumentParser(description="Active E2E-JEPA Training for Snake Game")
     parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file.")
 
@@ -41,24 +53,24 @@ if __name__ == '__main__':
     shutil.copy(source, destination) # we preserve the exact configuration
 
     # Training parameters
-    DEVICE = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
-    TOTAL_EPOCHS = config.get("n_epochs", 200)
-    STEPS_PER_EPOCH = config.get("steps_per_epoch", 256)
-    BATCH_SIZE = config.get("batch_size", 32)
-    REFRESH_BUFFER = config.get("refresh_buffer_freq", 8)
-    WHERE_SAVE = config.get("save_path", DEFAULT_SAVE_LOCATION)
-    EPOCHS_PER_CHECKPOINT = config.get("epochs_per_checkpoint", TOTAL_EPOCHS//2)
-    CLEAN_CHECKPOINTS = config.get("clean_checkpoints", True)
+    device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+    total_epochs = config.get("n_epochs", 200)
+    steps_per_epoch = config.get("steps_per_epoch", 256)
+    batch_size = config.get("batch_size", 32)
+    refresh_buffer = config.get("refresh_buffer_freq", 8)
+    where_save = config.get("save_path", DEFAULT_SAVE_LOCATION)
+    epochs_per_checkpoint = config.get("epochs_per_checkpoint", total_epochs//2)
+    clean_checkpoints = config.get("clean_checkpoints", True)
 
     # Environment parameters
-    ACTION_DIM = config.get("action_dim", 4)
-    CELL_SIZE = config.get("cell_size", 20)
-    GRID_WIDTH, GRID_HEIGHT = config.get("grid_width", 20), config.get("grid_height", 20)
-    WIDTH = GRID_WIDTH * CELL_SIZE
-    TOTAL_HEIGHT = GRID_HEIGHT * CELL_SIZE + BAR_HEIGHT
-    IMG_SIZE = (WIDTH, TOTAL_HEIGHT, 3)
-    N_OBSTACLES = config.get("n_obstacles", 10)
-    FPS = config.get("fps", 10)
+    action_dim = config.get("action_dim", 4)
+    cell_size = CELL_SIZE
+    grid_width, grid_height = WIDTH, GRID_HEIGHT
+    width = WIDTH
+    total_height = TOTAL_HEIGHT
+    img_size = (width, total_height, 3)
+    n_obstacles = config.get("n_obstacles", 10)
+    fps = config.get("fps", 10)
 
     # Encoder parameters
     embed_dim = config.get("embedding_dim", 64)
@@ -77,14 +89,14 @@ if __name__ == '__main__':
     use_adaLN = config.get("use_adaLN", True)
     dropout = config.get("dropout", 0.0)
 
-    trainer = ActiveE2EJEPATrainer(
+    trainer = E2EJEPA(
         env=SnakeEnv(**config),
-        encoder=VisualTransformer(img_size=IMG_SIZE,
+        encoder=VisualTransformer(img_size=img_size,
                                   embed_dim=embed_dim,
-                                  patch_size=CELL_SIZE,
+                                  patch_size=cell_size,
                                   mlp_dim=enc_mlp_dim,
                                   num_heads=enc_n_heads,
-                                  depth=enc_depth).to(device=DEVICE),
+                                  depth=enc_depth).to(device=device),
         predictor=Transformer(input_dim=embed_dim,
                               hidden_dim=pred_hidden_dim,
                               cond_dim=pred_cond_dim,
@@ -92,18 +104,18 @@ if __name__ == '__main__':
                               depth=pred_depth,
                               num_heads=pred_n_heads,
                               mlp_dim=pred_mlp_dim,
-                              use_adaLN=use_adaLN).to(device=DEVICE),
+                              use_adaLN=use_adaLN).to(device=device),
         policy=eval(config["pol_type"])(**config),
-        action_dim=ACTION_DIM,
+        action_dim=action_dim,
         embed_dim=embed_dim
     )
     
     env = SnakeEnv(render_mode="rgb_array", observation_type="image")
     x_t, _ = env.reset()
-    x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=DEVICE)
+    x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
 
-    for epoch in range(TOTAL_EPOCHS):
-        if epoch % REFRESH_BUFFER == 0:
+    for epoch in range(total_epochs):
+        if epoch % refresh_buffer == 0:
             trainer.buffer.refresh()
 
         trainer.encoder.eval()
@@ -111,7 +123,7 @@ if __name__ == '__main__':
         
         with torch.no_grad():
 
-            for step in range(STEPS_PER_EPOCH):
+            for step in range(steps_per_epoch):
                 z_t = trainer.encoder(x_t)[:, 0, :]
                 
                 # Choose action actively using current model state
@@ -124,7 +136,7 @@ if __name__ == '__main__':
                 if info:
                     a_t = info["act"]
 
-                x_tp1 = torch.tensor(np.expand_dims(x_tp1, 0)).float().to(device=DEVICE)
+                x_tp1 = torch.tensor(np.expand_dims(x_tp1, 0)).float().to(device=device)
 
                 z_tp1 = trainer.encoder(x_tp1)[:, 0, :]
 
@@ -134,32 +146,32 @@ if __name__ == '__main__':
                 if done:
                     # Reset        
                     x_t, _ = env.reset()
-                    x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=DEVICE)
+                    x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
                 else:
                     # Move forward
                     x_t = x_tp1
             
         # Optimize over collected transitions at the end of the epoch step block
-        metrics = trainer.update_parameters(BATCH_SIZE, epoch, TOTAL_EPOCHS, device=DEVICE)
+        metrics = trainer.update_parameters(batch_size, epoch, total_epochs, device=device)
         if metrics:
             print(f"Epoch {epoch} Metrics -> Loss: {metrics['total_loss']:.8f} | Pred: {metrics['pred_loss']:.8f} | Policy : {metrics['policy_loss']:.8f}")
 
         # Dynamically saving checkpoints and removing them
-        if epoch%EPOCHS_PER_CHECKPOINT == 0:
-            save_results(f"{WHERE_SAVE}{epoch//EPOCHS_PER_CHECKPOINT}.pkl", trainer.predictor, trainer.encoder, trainer.policy.network)
-            if CLEAN_CHECKPOINTS:
-                old = Path(f"{WHERE_SAVE}{epoch//EPOCHS_PER_CHECKPOINT - 1}.pkl")
+        if epoch%epochs_per_checkpoint == 0:
+            save_results(f"{where_save}{epoch//epochs_per_checkpoint}.pkl", trainer.predictor, trainer.encoder, trainer.policy.network)
+            if clean_checkpoints:
+                old = Path(f"{where_save}{epoch//epochs_per_checkpoint - 1}.pkl")
                 if old.exists():
                     old.unlink()
     
-    if CLEAN_CHECKPOINTS:
+    if clean_checkpoints:
         import math
         # Removing the last checkpoint searching for the correct index with floor and ceil functions
-        old_ceil = Path(f"{WHERE_SAVE}{math.ceil(TOTAL_EPOCHS//EPOCHS_PER_CHECKPOINT)}.pkl")
-        old_floor = Path(f"{WHERE_SAVE}{math.floor(TOTAL_EPOCHS//EPOCHS_PER_CHECKPOINT)}.pkl")
+        old_ceil = Path(f"{where_save}{math.ceil(total_epochs//epochs_per_checkpoint)}.pkl")
+        old_floor = Path(f"{where_save}{math.floor(total_epochs//epochs_per_checkpoint)}.pkl")
         if old_ceil.exists():
             old_ceil.unlink()
         if old_floor.exists():
             old_floor.unlink()
 
-    save_results(f"{WHERE_SAVE}final.pkl",  trainer.predictor, trainer.encoder, trainer.policy.network)
+    save_results(f"{where_save}final.pkl",  trainer.predictor, trainer.encoder, trainer.policy.network)
