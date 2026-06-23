@@ -26,4 +26,4 @@ source $SCRATCH/E2E-JEPA/.venv/bin/activate
 mkdir -p log
 
 CONFIG_FILE="./configs/raw-policies/dqn-conv-2d-train.yaml"
-python -u src/policy/policy.py --config "${CONFIG_FILE}" --train
+python -m src.policy.policy --config "${CONFIG_FILE}" --train
