@@ -77,7 +77,7 @@ class E2EJEPA:
         buffer_capacity: int = 20000,
         coupled_dynamic = False,
         horizon : int = 1,
-        alpha: float = 0.1,
+        alpha: Regularizer = LinearRegularizer(reg_weight_start=1, reg_weight_end=1, reg_weight_step=1),
         pol_loss_regularizer: Regularizer = None
     ):
         self.env = env
@@ -188,9 +188,6 @@ class E2EJEPA:
         r_t = r_t.to(device=device)
         x_tp1 = x_tp1.to(device=device)
         done = done.to(device=device)
-
-        # Regularization parameter
-        alpha = 0.1
     
         # Latent Mappings
         z_t = self.encoder(x_t)[:, 0, :]
@@ -199,25 +196,33 @@ class E2EJEPA:
         z_t_seq = z_t.unsqueeze(1) 
         # Pass through predictor and remove the sequence dimension: [32, 1, 64] -> [32, 64]
         z_tp1_pred = self.predictor(z_t_seq, a_t).squeeze(1)
+
+        # Collapsing Check
+        print(f"Batch {0}, Element {0}: z_t : {z_t[0][0].cpu().detach().numpy()} \t\t z_tp1_target : {z_tp1_target[0][0].cpu().detach().numpy()} \t\t z_tp1_pred : {z_tp1_pred[0][0].cpu().detach().numpy()}\n")
+
         # Prediction Loss
         loss_pred = F.mse_loss(z_tp1_pred, z_tp1_target.detach())
 
         # Anti-Collapse Loss
         loss_sigreg = self.compute_sigreg(z_t)
 
-        if isinstance(self.policy.network, AttentionPPO) or isinstance(self.policy.network, ConvPPO):
+        if isinstance(self.policy.network, (AttentionPPO, ConvPPO)):
             # to handle differently
             trajectory = self.compute_trajectory(z_t, horizon=self.horizon)
             loss_policy = self.policy.update_parameters(trajectory = trajectory)
         else:
-            loss_policy = self.policy.update_parameters(init_state = z_t.unsqueeze(1).detach(), next_state = z_tp1_target.unsqueeze(1).detach(), rewards = r_t, dones = done)
- 
+            loss_policy = self.policy.update_parameters(init_state = z_t.unsqueeze(1).detach(),
+                                                        next_state = z_tp1_target.unsqueeze(1).detach(),
+                                                        rewards = r_t,
+                                                        dones = done,
+                                                        reg_coeff = self.pol_loss_regularizer.step() if self.pol_loss_regularizer else 1.0)
+
         # Total multi-task execution loss
         # Since the losses are actually decoupled
         # We can just sum them as they are
         total_loss = (
             loss_pred + 
-            alpha * loss_sigreg
+            self.alpha.step(loss_reg = loss_sigreg, loss_target = loss_pred) * loss_sigreg
         )
 
         self.optimizer.zero_grad()
@@ -230,7 +235,11 @@ class E2EJEPA:
         x_tp1 = x_tp1.to(device="cpu")
         done = done.to(device="cpu")
 
-        return {"total_loss": total_loss.item(), "pred_loss": loss_pred.item(), "policy_loss":  loss_policy.item()}
+        return {"total_loss": total_loss.item(),
+                "pred_loss": loss_pred.item(),
+                "policy_loss":  loss_policy.item(),
+                "sigreg_loss": loss_sigreg.item()
+                }
 
 if __name__ == "__main__":
     pass
