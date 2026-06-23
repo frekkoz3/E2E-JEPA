@@ -89,6 +89,8 @@ if __name__ == '__main__':
     use_adaLN = config.get("use_adaLN", True)
     dropout = config.get("dropout", 0.0)
 
+    metrics_collector = MetricsCollector()
+
     trainer = E2EJEPA(
         env=SnakeEnv(difficulty=difficulty, **config),
         encoder=VisualTransformer(img_size=img_size,
@@ -163,6 +165,7 @@ if __name__ == '__main__':
                   f"Pred: {metrics['pred_loss']:.8f} | "
                   f"Policy : {metrics['policy_loss']:.8f} | "
                   f"SigReg: {metrics['sigreg_loss']:.8f}")
+            metrics_collector.add_metric(metrics)
 
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:
@@ -186,3 +189,4 @@ if __name__ == '__main__':
             old_floor.unlink()
 
     save_results(f"{where_save}final.pkl",  trainer.predictor, trainer.encoder, trainer.policy.network)
+    metrics_collector.save_metrics(f"{where_save}metrics.csv")
