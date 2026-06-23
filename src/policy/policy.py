@@ -484,6 +484,8 @@ class PolicyDQN(Policy):
 
         super().__init__(**kwargs)
 
+        self.env = None
+
         self.target_network = copy.deepcopy(self.network)
         self.target_net_update_freq = kwargs.get("target_net_update_freq", 25)
         self.epoch = 0
@@ -684,6 +686,7 @@ class PolicyDQN(Policy):
                           next_state : torch.Tensor | Tuple[torch.Tensor],
                           rewards : torch.Tensor,
                           dones : torch.Tensor,
+                          reg_coeff : float = 1.,
                           ) -> Dict[str, float | int]:
         """
         Computes a TD learning step for the DQN architecture.
@@ -698,6 +701,8 @@ class PolicyDQN(Policy):
             The rewards received after taking actions in the initial states.
         dones : torch.Tensor
             A tensor indicating whether the episodes have terminated after taking actions in the initial states.
+        reg_coeff : Regularizer | float, optional
+            A regularization coefficient or a Regularizer object to apply during the update, by default 1.0.
 
         Returns
         -------
@@ -716,7 +721,7 @@ class PolicyDQN(Policy):
             target_q_values = rewards.squeeze(-1) + self.reward_discount * next_q_values.squeeze(-1) * (1 - dones.squeeze(-1))
 
         # Compute the loss (MSE) between online and target Q-Values
-        loss = self.loss(online_q_values, target_q_values)
+        loss = reg_coeff * self.loss(online_q_values, target_q_values)
 
         # Optimize parameters
         self.optimizer.zero_grad()

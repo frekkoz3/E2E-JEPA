@@ -77,9 +77,9 @@ class E2EJEPA:
         buffer_capacity: int = 20000,
         coupled_dynamic = False,
         horizon : int = 1,
-        alpha: Regularizer = None,#= LinearRegularizer(reg_weight_start=1, reg_weight_end=1, reg_weight_step=1),
+        alpha: Regularizer = LinearRegularizer(reg_weight_start=1, reg_weight_end=1.1, reg_weight_step=1),
         beta : Regularizer | None = None,
-        pol_loss_regularizer: Regularizer | None = None
+        pol_loss_regularizer: Regularizer = PropToOtherLossChangeRegularizer()
     ):
         self.env = env
         self.encoder = encoder
@@ -215,11 +215,12 @@ class E2EJEPA:
             trajectory = self.compute_trajectory(z_t, horizon=self.horizon)
             loss_policy = self.policy.update_parameters(trajectory = trajectory)
         else:
+            reg_coeff = self.gamma.step(loss_target = loss_pred.detach() ) if self.gamma else 1.0
             loss_policy = self.policy.update_parameters(init_state = z_t.unsqueeze(1).detach(),
                                                         next_state = z_tp1_target.unsqueeze(1).detach(),
                                                         rewards = r_t,
                                                         dones = done,
-                                                        reg_coeff = self.gamma.step() if self.gamma else 1.0)
+                                                        reg_coeff = reg_coeff)
 
         # Total multi-task execution loss
         # Since the losses are actually decoupled
