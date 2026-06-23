@@ -49,7 +49,7 @@ policy:
   epsilon_strategy: "EpsilonGreedy"
   epsilon_start: 1.0
   epsilon_end: 0.1
-  epsilon_coeff: 0.9995
+  epsilon_coeff: 0.99955
 
   pol_input_dim : 64
   pol_output_dim : 4
@@ -71,12 +71,12 @@ policy:
 training:
   device : "cuda"
 
-  n_epochs : 12
+  n_epochs : 5000
   steps_per_epoch : 256
 
   batch_size : 32
   buffer_size : 1024
-  refresh_buffer_freq : 4
+  refresh_buffer_freq : 8
 
   optimizer : "Adam"
   lr_init : 0.05
@@ -86,7 +86,7 @@ training:
 
 
 save:
-  epochs_per_checkpoint: 5
+  epochs_per_checkpoint: 100
   save_model: True
   clean_checkpoints : True
   #save_path: "./models/e2e/"

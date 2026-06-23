@@ -23,4 +23,4 @@ cd $SCRATCH/e2e-jepa
 mkdir -p logs
 
 # ---- run program ----
-python -m src.train.train --where ./models/exp2.pkl --config ./configs/raw-policies/dqn-conv-train.yaml
+python -m src.train.train --config ./configs/e2e/e2e.yaml --run-name leonardo1
