@@ -166,6 +166,7 @@ if __name__ == '__main__':
                   f"Policy : {metrics['policy_loss']:.8f} | "
                   f"SigReg: {metrics['sigreg_loss']:.8f}")
             metrics_collector.add_metric(metrics)
+            metrics_collector.save_metrics(f"{where_save}metrics.csv", append = (epoch > 0))
 
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:

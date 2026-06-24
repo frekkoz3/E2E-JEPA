@@ -37,13 +37,21 @@ class MetricsCollector:
         """Returns the collected metrics"""
         return self.metrics
 
-    def save_metrics(self, where: str):
-        """Saves the collected metrics to a csv file"""
-        with open(where, 'w') as f:
+    def save_metrics(self, where: str, append: bool = False):
+        """Saves metrics to a CSV file"""
+        if not self.metrics:
+            return
 
+        mode = "a" if append else "w"
+
+        with open(where, mode, newline="") as f:
             writer = csv.DictWriter(f, fieldnames=self.metrics[0].keys())
-            writer.writeheader()
-            writer.writerows(self.metrics)
+
+            if not append:
+                writer.writeheader()
+                writer.writerows(self.metrics)  # save all metrics
+            else:
+                writer.writerow(self.metrics[-1])  # append only last metric
 
 
 def plot_metrics(csv_path: str, save: bool):
