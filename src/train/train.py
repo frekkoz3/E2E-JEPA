@@ -114,7 +114,8 @@ if __name__ == '__main__':
         embed_dim=embed_dim
     )
     if load_checkpoints:
-        load_results(f"{load_checkpoints_path}", trainer.predictor, trainer.encoder, trainer.policy.network)
+        checkpoint_name = config.get("last_checkpoint")
+        load_results(f"{default_save_location}/{checkpoint_name}", trainer.predictor, trainer.encoder, trainer.policy.network)
     
     env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=difficulty)
     x_t, _ = env.reset()
@@ -170,7 +171,10 @@ if __name__ == '__main__':
                   f"Policy : {metrics['policy_loss']:.8f} | "
                   f"SigReg: {metrics['sigreg_loss']:.8f}")
             metrics_collector.add_metric(metrics)
-            metrics_collector.save_metrics(f"{where_save}metrics.csv", append = (epoch > 0))
+            if not load_checkpoints:
+                metrics_collector.save_metrics(f"{where_save}metrics.csv", append = (epoch > 0))
+            else:
+                metrics_collector.save_metrics(f"{where_save}metrics.csv", append = True)
 
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:
@@ -194,4 +198,3 @@ if __name__ == '__main__':
             old_floor.unlink()
 
     save_results(f"{where_save}final.pkl",  trainer.predictor, trainer.encoder, trainer.policy.network)
-    metrics_collector.save_metrics(f"{where_save}metrics.csv")
