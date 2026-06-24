@@ -179,19 +179,23 @@ if __name__ == '__main__':
 
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:
-            old_tag = 0
-            if load_checkpoints and load_checkpoints_path.endswith(".pkl"):
-                old_tag = load_checkpoints_path[:-4]
+            starting_epochs = 0
+            print(starting_epochs)
+            if load_checkpoints and checkpoint_name.endswith(".pkl") and epoch :
+                tag = checkpoint_name[:-4]
+                print(tag)
                 try:
-                    old_tag = int(old_tag.split("/")[-1])
+                    starting_epochs = int(tag.split("/")[-1])
                 except:
                     continue
-            save_results(f"{where_save}{epoch//epochs_per_checkpoint + old_tag}.pkl",
+
+            print(starting_epochs)
+            save_results(f"{where_save}{(starting_epochs+epoch)//epochs_per_checkpoint}.pkl",
                          trainer.predictor,
                          trainer.encoder,
                          trainer.policy.network)
             if clean_checkpoints:
-                old = Path(f"{where_save}{epoch//epochs_per_checkpoint + old_tag - 1}.pkl")
+                old = Path(f"{where_save}{(starting_epochs+epoch)//epochs_per_checkpoint - 1}.pkl")
                 if old.exists():
                     old.unlink()
     
