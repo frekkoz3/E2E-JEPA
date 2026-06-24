@@ -40,7 +40,7 @@ policy:
     "out_channels" : 32,
     "kernel_size" : 16,
     "stride" : 1
-  },
+    },
     {
       "out_channels" : 16,
       "kernel_size" : 8,
@@ -81,7 +81,7 @@ training:
 save:
   checkpoint: 100
   save_model: True
-  save_path: "./models/raw-policies/conv-ppo/binn_y_re_20_m5_01/"
+  save_path: "./models/raw-policies/conv-ppo/binn_y_re_20_m5_01"
 
 pretrain:
 #  model_path : "./src/policy/models/conv-ppo/ep_101-1000.pth"

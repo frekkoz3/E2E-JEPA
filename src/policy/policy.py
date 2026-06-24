@@ -273,7 +273,6 @@ class PolicyPPO(Policy):
         self.mini_batch_size = kwargs.get("pol_mini_batch_size", 8)
         self.horizon = kwargs.get("pol_horizon", 1)
 
-
     @torch.no_grad()
     def _get_rollout(self, state):
         """"Runs a rollout in the environment, given an initial state"""
@@ -281,12 +280,12 @@ class PolicyPPO(Policy):
 
         # Rollout loop
         for step in range(self.horizon):
-            state = self._format_state(state)
+            state = self._format_state(state, bracket = False)
 
             action, (log_p, value) = self.get_action(state, greedy = False)
 
             next_state, reward, done, truncated, _ = self.environment.step(action)
-            stop = done | truncated
+            stop = done or truncated
 
             states.append(state)
             actions.append(torch.tensor(action, dtype=torch.int64, device=self.device))
@@ -295,9 +294,15 @@ class PolicyPPO(Policy):
             dones.append(torch.tensor(stop, dtype=torch.float32, device=self.device))
             log_probs.append(log_p)
 
-            # 4. Handle State Transition
+            if stop:
+                if isinstance(self.environment, gym.vector.VectorEnv):
+                    pass
+                else:
+                    next_state, _ = self.environment.reset()
+
             state = next_state
 
+        # Stack tensors
         states = torch.stack(states, dim=0)
         actions = torch.stack(actions, dim=0)
         rewards = torch.stack(rewards, dim=0)
@@ -311,17 +316,46 @@ class PolicyPPO(Policy):
             last_value = last_value.squeeze(-1).squeeze(-1).unsqueeze(0)
         else:
             last_value = last_value.squeeze(-1).unsqueeze(0)
+
         values = torch.cat( [values, last_value], dim=0)
 
         return states, actions, rewards, values, log_probs, dones
 
 
-    def _format_state(self, state : Any) -> torch.Tensor:
+    def _format_state(self, state : Any, bracket : bool = False) -> torch.Tensor:
         """
         Formats the input state into a suitable format for the PPO network:
                 [batch_size, n_channels, raw_pixels] = [1, 1, 400]
         """
         state_tensor = state if isinstance(state, torch.Tensor) else torch.tensor(state, dtype=torch.float32, device=self.device)
+
+        if bracket:
+            head_indices = (state_tensor == 2).nonzero(as_tuple=True)   # fixed swap
+            food_indices = (state_tensor == 1).nonzero(as_tuple=True)
+
+            head_y = head_indices[-2][0].float() if len(head_indices[-2]) > 0 else torch.tensor(0., device=self.device)
+            head_x = head_indices[-1][0].float() if len(head_indices[-1]) > 0 else torch.tensor(0., device=self.device)
+            food_y = food_indices[-2][0].float() if len(food_indices[-2]) > 0 else torch.tensor(0., device=self.device)
+            food_x = food_indices[-1][0].float() if len(food_indices[-1]) > 0 else torch.tensor(0., device=self.device)
+
+            # Relative food position (generalizes better than absolute food coords)
+            delta_x = food_x - head_x
+            delta_y = food_y - head_y
+
+            # Current direction as one-hot over {UP, DOWN, LEFT, RIGHT}
+            direction_map = {(0, -1): 0, (0, 1): 1, (-1, 0): 2, (1, 0): 3}
+            dir_idx = direction_map.get(self.environment.direction, 0)
+            dir_onehot = torch.zeros(4, dtype=torch.float32, device=self.device)
+            dir_onehot[dir_idx] = 1.0
+
+            # 8-dim state: [head_x, head_y, Δx, Δy, dir_UP, dir_DOWN, dir_LEFT, dir_RIGHT]
+            state_brack = torch.cat([
+                torch.stack([head_x, head_y, delta_x, delta_y]),
+                dir_onehot
+            ]).unsqueeze(0)   # shape [1, 8]
+
+            return state_brack
+
 
         # (num_envs, 20, 20) -> (num_envs, 1, 400)
         if state_tensor.dim() == 3 and state_tensor.shape[1:] == (20, 20):
@@ -358,15 +392,16 @@ class PolicyPPO(Policy):
     def train(self, init_state, n_trajectories : int):
         """PPO full training loop"""
         # Compute rollout
-        states, actions, rewards, values, log_probs, dones = self._get_rollout(state = init_state)
+        states, actions, rewards, values, log_probs, dones = self._get_rollout(state=init_state)
 
         # Compute advantages and returns
-        returns, advantages = self.loss.compute_advantages(last_state_value = values[-1],
-                                                           rewards = rewards,
-                                                           values = values,
-                                                           dones = dones)
+        returns, advantages = self.loss.compute_advantages(last_state_value=values[-1],
+                                                           rewards=rewards,
+                                                           values=values[:-1],
+                                                           dones=dones)
 
-        batch_size = states.shape[0] * states.shape[1]
+        # Dynamically determine batch size
+        batch_size = states.shape[0]
 
         states = states.view(batch_size, *states.shape[2:])
         actions = actions.view(batch_size)
@@ -751,7 +786,7 @@ if __name__ == "__main__":
     config = flat_config(config)
 
     # Initialize Policy
-    if config.get("network") in ["AttentionPPO", "ConvPPO"]:
+    if config.get("pol_network") in ["AttentionPPO", "ConvPPO"]:
         policy = PolicyPPO(**config)
     else:
         policy = PolicyDQN(**config)
