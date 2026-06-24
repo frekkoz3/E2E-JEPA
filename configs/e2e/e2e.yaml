@@ -3,6 +3,7 @@ environment:
   n_environments: 1
   n_obstacles : 10
   max_step : 1000
+  rescale_frames : True
 
   render_mode : "rgb_array"
   observation_type : "image"

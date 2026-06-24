@@ -73,6 +73,7 @@ if __name__ == '__main__':
     n_obstacles = config.get("n_obstacles", 10)
     fps = config.get("fps", 10)
     difficulty = config.get("difficulty", 2)
+    rescale_frames = config.get("rescale_frames", False)
 
     # Encoder parameters
     embed_dim = config.get("embedding_dim", 64)
@@ -117,7 +118,7 @@ if __name__ == '__main__':
         checkpoint_name = config.get("last_checkpoint")
         load_results(f"{default_save_location}/{checkpoint_name}", trainer.predictor, trainer.encoder, trainer.policy.network)
     
-    env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=difficulty)
+    env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=difficulty, rescale_frames = rescale_frames)
     x_t, _ = env.reset()
     x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
 
@@ -161,7 +162,7 @@ if __name__ == '__main__':
                 else:
                     # Move forward
                     x_t = x_tp1
-            
+
         # Optimize over collected transitions at the end of the epoch step block
         metrics = trainer.update_parameters(batch_size, device=device)
         if metrics:

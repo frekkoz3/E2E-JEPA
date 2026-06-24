@@ -29,7 +29,7 @@ RESOURCES_PATH = "src/game/resources/"
 class SnakeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": FPS}
 
-    def __init__(self, render_mode=None, max_step=100, observation_type="grid", difficulty=0, **kwargs):
+    def __init__(self, render_mode=None, max_step=100, observation_type="grid", difficulty=0, rescale_frames : bool = False, **kwargs):
         """
         Snake Environment
 
@@ -46,12 +46,13 @@ class SnakeEnv(gym.Env):
         self.action_space = spaces.Discrete(4)  # 0=UP, 1=DOWN, 2=LEFT, 3=RIGHT
         self.render_mode = render_mode
         self.observation_type = observation_type
+        self.rescale_frames = rescale_frames
         self.difficulty = max(0, min(difficulty, 3)) # Clamp difficulty between 0 and 3
         # Difficulty 0 means that the snake does not grow
         # Difficulty 1 means the standard game
         # Difficulty 2 means that there are some obstacles
         # Difficulty 3 means that the obstacle can change positions and there are fake apples
-        
+
         if self.observation_type == "image":
             self.observation_space = spaces.Box(
                 low=0, high=255, shape=(TOTAL_HEIGHT, WIDTH, 3), dtype=np.uint8
@@ -242,7 +243,11 @@ class SnakeEnv(gym.Env):
         if done:
             return self.death_state()
         if self.observation_type == "image":
-            return self._render_frame()
+            frame = self._render_frame()
+            if self.render_mode == "rgb_array" and self.rescale_frames:
+                # rescale pixels in [0, 1]
+                frame = frame.astype(np.float32) / 255.0
+            return frame
             
         grid = np.zeros((GRID_HEIGHT, GRID_WIDTH), dtype=np.uint8)
         for x, y in self.snake:
