@@ -68,34 +68,34 @@ DEFAULT_SIGREG_NUM_PROJ = 128
 # SIGReg
 class SIGReg(nn.Module):
     """
-    Sketched-Isotropic-Gaussian Regularizer (SIGReg) 
+    Sketched-Isotropic-Gaussian Regularizer (SIGReg)
     as described in LeWM (Maes et al., 2026).
     """
     def __init__(self, embed_dim: int, num_projections: int = DEFAULT_SIGREG_NUM_PROJ, num_nodes: int = DEFAULT_SIGREG_KNOTS, device : str = "cuda"):
         super().__init__()
 
         self.device = device
-        
+
         # 1. Generate M unit-norm directions (u_m)
         # Shape: (embed_dim, num_projections)
         u_m = torch.randn(embed_dim, num_projections).to(device=device)
         u_m = torch.nn.functional.normalize(u_m, p=2, dim=0)
         self.register_buffer('u_m', u_m)
-        
+
         # 2. Quadrature nodes uniformly distributed in [0.2, 4]
         # Shape: (num_nodes,)
         self.num_nodes = num_nodes
         t_nodes = torch.linspace(0.2, 4.0, num_nodes, device=device)
         self.register_buffer('t_nodes', t_nodes)
-        
+
         # Trapezoid integration step size
         self.dt = (4.0 - 0.2) / (num_nodes - 1)
-        
+
         # 3. Target Characteristic Function for standard N(0, 1)
         # phi_0(t) = exp(-t^2 / 2)
         phi_0 = torch.exp(- (t_nodes ** 2) / 2.0)
         self.register_buffer('phi_0', phi_0)
-        
+
         # 4. Weighting function w(t)
         # Using w(t) = exp(-t^2 / 2) as an example weight
         w_t = torch.exp(- (t_nodes ** 2) / 2.0)
@@ -108,7 +108,7 @@ class SIGReg(nn.Module):
         # Flatten temporal/batch dimensions to treat all states as a single set of points
         if z.dim() > 2:
             z = z.reshape(-1, z.size(-1))
-            
+
         N = z.size(0)
 
         # Step 1: Project embeddings onto the M random directions
@@ -119,7 +119,7 @@ class SIGReg(nn.Module):
         # We need the product of t_nodes and h for the exponential e^(i * t * h)
         # th shape: (num_nodes, N, num_projections)
         th = torch.einsum('k,nm->knm', self.t_nodes, h.to(device=z.device))
-        
+
         # Real and Imaginary parts of ECF over the N samples
         # ECF_real and ECF_imag shape: (num_nodes, num_projections)
         ecf_real = torch.mean(torch.cos(th), dim=1)
@@ -132,7 +132,7 @@ class SIGReg(nn.Module):
 
         # Step 4: Apply weighting function and integrate using Trapezoidal rule
         integrand = self.w_t.unsqueeze(1) * diff_sq
-        
+
         # integral shape: (num_projections,)
         integral = torch.trapz(integrand, dx=self.dt, dim=0)
 
@@ -158,7 +158,7 @@ class E2EJEPA:
         horizon : int = 1,
         alpha: Regularizer = LinearRegularizer(reg_weight_start=0.01, reg_weight_end=0.02, reg_weight_step=1),
         beta : Regularizer | None = None,
-        pol_loss_regularizer: Regularizer = PropToOtherLossChangeRegularizer(), 
+        pol_loss_regularizer: Regularizer = PropToOtherLossChangeRegularizer(),
         device = "cuda"
     ):
         self.env = env
@@ -202,6 +202,20 @@ class E2EJEPA:
         """Phase-Based Exploration: Generates actions on live frames."""
         action, info = self.policy.get_action(state=state, greedy=greedy)
         return action, info
+
+
+    def predict(self, ctx_emb, ctx_act):
+        """Predicts future states autoregressively."""
+
+        # 1. Dimension Fix: Convert discrete integer actions to one-hot floats
+        # Transforms (B, T) -> (B, T, action_dim) to match transformer.py's action_proj
+        if ctx_act.dim() == 2:
+            ctx_act = F.one_hot(ctx_act.long(), num_classes=self.action_dim).float()
+        elif ctx_act.dim() == 3 and ctx_act.shape[-1] == 1:
+            ctx_act = F.one_hot(ctx_act.squeeze(-1).long(), num_classes=self.action_dim).float()
+
+        # The new transformer.py natively handles causal masking internally
+        return self.predictor(ctx_emb, ctx_act)
 
 
     def compute_trajectory(self, z_t: torch.Tensor, horizon: int=1):
@@ -255,28 +269,33 @@ class E2EJEPA:
 
         # This is completely decoupled
 
-        # Sample online trajectory combinations
-        x_t, a_t, r_t, x_tp1, done = self.buffer.sample(batch_size)
-        x_t = x_t.to(device=device)
-        a_t = a_t.to(device=device)
-        r_t = r_t.to(device=device)
-        x_tp1 = x_tp1.to(device=device)
-        done = done.to(device=device)
-    
-        # Latent Mappings
-        z_t = self.encoder(x_t)[:, 0, :]
-        z_tp1_target = self.encoder(x_tp1)[:, 0, :]
-        
-        # Add a sequence dimension: [32, 64] -> [32, 1, 64]
-        z_t_seq = z_t.unsqueeze(1) 
-        # Pass through predictor and remove the sequence dimension: [32, 1, 64] -> [32, 64]
-        z_tp1_pred = self.predictor(z_t_seq, a_t).squeeze(1)
+        x_seq, a_seq, r_seq, done_seq = self.buffer.sample(batch_size)
+        x_seq = x_seq.to(device=device)
+        a_seq = a_seq.to(device=device)
+        r_seq = r_seq.to(device=device)
+        done_seq = done_seq.to(device=device)
+
+        B, T = x_seq.shape[0], x_seq.shape[1]
+        context_length = T-1
+
+        z_seq = self.encoder(x_seq)
+
+        context_embedding = z_seq[:, :context_length]
+        context_action = a_seq[:, :context_length]
+        target_embedding = z_seq[:, 1:context_length+1].detach()
+
+        prediction_embedding = self.predict(context_embedding, context_action)
 
         # Prediction Loss
-        loss_pred = F.mse_loss(z_tp1_pred, z_tp1_target)
+        loss_pred = F.mse_loss(prediction_embedding, target_embedding)
 
         # Anti-Collapse Loss
-        loss_sigreg = self.sigreg(z_t)
+        loss_sigreg = self.sigreg(context_embedding.transpose(0, 1))
+
+        z_t_policy = context_embedding[:, -1].unsqueeze(1).detach()
+        z_tp1_target = target_embedding[:, -1].unsqueeze(1).detach()
+        r_t = r_seq[:, -1]
+        done_t = done_seq[:, -1]
 
         if isinstance(self.policy.network, (AttentionPPO, ConvPPO)):
             # to handle differently
@@ -284,18 +303,19 @@ class E2EJEPA:
             loss_policy = self.policy.update_parameters(trajectory = trajectory)
         else:
             reg_coeff = self.gamma.step(loss_target = loss_pred.detach() ) if self.gamma else 1.0
-            loss_policy = self.policy.update_parameters(init_state = z_t.unsqueeze(1).detach(),
-                                                        next_state = z_tp1_target.unsqueeze(1).detach(),
+            loss_policy = self.policy.update_parameters(init_state = z_t_policy,
+                                                        next_state = z_tp1_target,
                                                         rewards = r_t,
-                                                        dones = done,
+                                                        dones = done_t,
                                                         reg_coeff = reg_coeff)
 
         # Total multi-task execution loss
         # Since the losses are actually decoupled
         # We can just sum them as they are
+        alpha_val = self.alpha.step(loss_reg = loss_sigreg, loss_target = loss_pred)
         total_loss = (
             loss_pred + 
-            self.alpha.step(loss_reg = loss_sigreg, loss_target = loss_pred) * loss_sigreg
+            alpha_val * loss_sigreg
         )
 
         self.optimizer.zero_grad()
