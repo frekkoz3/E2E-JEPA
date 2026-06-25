@@ -254,6 +254,5 @@ class Predictor(nn.Module):
         T = x.size(1)
         x = x + self.pos_embedding[:, :T]   # add temporal positional encoding
         x = self.dropout(x)
-        print(a.shape)
         c = self.action_proj(a)              # (B, T, hidden_dim)
         return self.transformer(x, c, causal=True)

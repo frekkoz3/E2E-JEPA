@@ -11,7 +11,7 @@ import torch
 import argparse
 import numpy as np
 
-from src.jepa.transformers import VisualTransformer, Transformer
+from src.jepa.transformers import VisualTransformer, Predictor
 from src.jepa.e2e_jepa import *
 from src.game.snake import SnakeEnv, TOTAL_HEIGHT, GRID_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT
 from src.policy.policy import Policy, PolicyDQN, PolicyPPO
@@ -74,17 +74,18 @@ if __name__ == '__main__':
                                   mlp_dim=enc_mlp_dim,
                                   num_heads=enc_n_heads,
                                   depth=enc_depth).to(device=device),
-        predictor=Transformer(input_dim=embed_dim,
-                              hidden_dim=pred_hidden_dim,
-                              cond_dim=pred_cond_dim,
-                              output_dim=embed_dim,
-                              depth=pred_depth,
-                              num_heads=pred_n_heads,
-                              mlp_dim=pred_mlp_dim,
-                              use_adaLN=use_adaLN).to(device=device),
+        predictor=Predictor(embed_dim=embed_dim,
+                            hidden_dim=pred_hidden_dim,
+                            action_dim=action_dim,
+                            depth=pred_depth,
+                            num_heads=pred_n_heads,
+                            mlp_dim=pred_mlp_dim,
+                            use_adaLN=use_adaLN,
+                            dropout=dropout).to(device=device),
         policy=eval(config["pol_type"])(**config),
         action_dim=action_dim,
-        embed_dim=embed_dim
+        embed_dim=embed_dim,
+        device=device
     )
 
     load_results(args.weights, model.predictor, model.encoder, model.policy.network)
