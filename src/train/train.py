@@ -128,6 +128,9 @@ if __name__ == '__main__':
     x_t, _ = env.reset()
     x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
 
+    # debug
+    print(torch.cuda.is_available())
+
     for epoch in range(total_epochs):
         if epoch % refresh_buffer == 0:
             trainer.buffer.refresh()

@@ -1,0 +1,19 @@
+#!/bin/bash
+#SBATCH --job-name=e2e_train
+#SBATCH --output=logs/%x_%j.out
+#SBATCH --error=logs/%x_%j.err
+#SBATCH --time=24:00:00
+#SBATCH --partition=Main
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=128G
+#SBATCH --gres=gpu:1
+
+# activate venv
+source .venv/bin/activate
+
+# ensure logs folder exists
+mkdir -p logs
+
+# ---- run program ----
+python -m src.train.train --config ./configs/e2e/e2e.yaml --run-name dem

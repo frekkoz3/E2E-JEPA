@@ -1,0 +1,98 @@
+environment:
+  environment : "Snake"
+  n_environments: 1
+  n_obstacles : 10
+  max_step : 1000
+  rescale_frames : True
+
+  render_mode : "rgb_array"
+  observation_type : "image"
+
+  difficulty : 2
+  cell_size : 35
+  grid_width : 20
+  grid_height : 20
+  resources_path : "./src/game/resources"
+  fps : 10
+
+  n_actions : 4
+  reward_food: 20
+  reward_death: -5
+  reward_step: -0.5
+
+
+encoder:
+  embedding_dim : 192
+  enc_mlp_dim : 256
+  enc_n_heads : 3
+  enc_depth : 12
+  enc_patch_size : 35
+  enc_patch_in_channels : 3
+
+
+predictor:
+  pred_hidden_dim : 192
+  pred_cond_dim : 4
+  pred_mlp_dim : 256
+  pred_n_heads : 16
+  pred_depth : 6
+  use_AdaLN : True
+  dropout : 0.1
+
+
+policy:
+  pol_type : "PolicyDQN"
+  pol_network : "ConvDQN"
+  pol_horizon : 1
+  pol_loss : "MSELoss"
+  reward_discount : 0.95
+
+  epsilon_strategy: "EpsilonGreedy"
+  epsilon_start: 1.0
+  epsilon_end: 0.15
+  epsilon_coeff: 0.9995
+
+  pol_input_dim : 192
+  pol_output_dim : 4
+  pol_num_conv_layer : 2
+  pol_target_net_update_freq : 64
+  pol_conv_layer_params : [{
+    "out_channels" : 4,
+    "kernel_size" : 3,
+    "stride" : 1
+  }, {
+    "out_channels" : 8,
+    "kernel_size" : 3,
+    "stride" : 1
+  }]
+  pol_num_fc_layer : 3
+  pol_dim_fc_layer : [1504, 640, 64]
+
+
+training:
+  device : "cuda"
+
+  n_epochs : 100
+  steps_per_epoch : 256
+
+  batch_size : 32
+  buffer_size : 1024
+  refresh_buffer_freq : 8
+
+  optimizer : "Adam"
+  lr_init : 0.005
+  lr_scheduler : "ExponentialLR"
+  lr_step_size : 10
+  lr_gamma : 0.999
+
+
+save:
+  epochs_per_checkpoint: 10
+  save_model: True
+  clean_checkpoints : True
+  load_checkpoints : False
+  last_checkpoint : "final.pkl"
+  #save_path: "./models/e2e/"
+
+load:
+# network_model_path : "PUT-HERE-SOME-PATH.PT"
