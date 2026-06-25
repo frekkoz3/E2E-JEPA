@@ -200,7 +200,6 @@ class E2EJEPA:
         action_dim: int,
         embed_dim: int,
         lr: float = 1e-4,
-        gamma: float = 0.99,
         buffer_capacity: int = 20000,
         coupled_dynamic = False,
         horizon : int = 1,
@@ -215,7 +214,7 @@ class E2EJEPA:
         self.sigreg = SIGReg(embed_dim=embed_dim, device=device)
         self.policy = policy
         self.action_dim = action_dim
-        self.gamma = gamma
+
         self.horizon = horizon
         
         self.buffer = OnlineTrajectoryBuffer(capacity=buffer_capacity)
@@ -325,6 +324,33 @@ class E2EJEPA:
 
         return batch
 
+
+    def autoregressive_rollout(self, z_seq : torch.Tensor, context_actions : torch.Tensor, future_actions) -> torch.Tensor:
+        """
+        Takes the states and autoregressively predicts the future ones.
+        Future states will have size: [Batch Size; Self.Horizon; Embedding Dimension]
+        """
+        # Concatenate actions:
+        actions = torch.cat([context_actions, future_actions], dim=1)
+        history_size = z_seq.size(1)
+
+        predictions = []
+        for t in range(self.horizon):
+            # Sliding Window
+            z_in = z_seq[:, -history_size:] # At the first round, it will be the whole Tensor
+            a_in = actions[:, t : t + history_size]
+
+            # Predict
+            z_pred = self.predict(z_in, a_in)
+
+            # Keep just the last element and concatenate it to the states' sequence
+            z_next = z_pred[:, -1:]
+            predictions.append(z_next)
+            z_seq = torch.cat([z_seq, z_next], dim=1)
+
+        return torch.cat(predictions, dim=1)
+
+
     def update_parameters(self, batch) -> Dict[str, float]:
         """Samples from active trajectory memory and performs backpropagation."""
         self.encoder.train()
@@ -334,11 +360,17 @@ class E2EJEPA:
 
         z_seq = self.encode(x_seq)
 
-        context_embedding = z_seq[:, :-1]
-        context_action = a_seq[:, :-1]
-        target_embedding = z_seq[:, 1:].detach()
+        context_embedding = z_seq[:, :-self.horizon]
+        context_action = a_seq[:, :-self.horizon]
+        target_embedding = z_seq[:, -self.horizon:].detach()
+        target_action = a_seq[:, -self.horizon:]
 
-        prediction_embedding = self.predict(context_embedding, context_action)
+        if self.horizon > 1:
+            print("I was here PUTA MADREEEEE")
+            prediction_embedding = self.autoregressive_rollout(context_embedding, context_action, target_action)
+        else:
+            print("I am here PUTA MADREEEEE")
+            prediction_embedding = self.predict(context_embedding, context_action)[:, -1:, ...]
 
         # Prediction Loss
         loss_pred = F.mse_loss(prediction_embedding, target_embedding)
@@ -372,6 +404,9 @@ class E2EJEPA:
 
         self.optimizer.zero_grad()
         total_loss.backward()
+        # eventually clip:
+        # torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), max_norm=1.0)
+        # torch.nn.utils.clip_grad_norm_(self.predictor.parameters(), max_norm=1.0)
         self.optimizer.step()
 
         return {"total_loss": total_loss.item(),

@@ -65,8 +65,9 @@ if __name__ == '__main__':
     load_checkpoints_path = config.get("load_checkpoints_path", f"{where_save}final.pkl")
 
     # Sequence parameters
-    history_size = config.get("history_size", 3)
-    seq_len = history_size + 1  # +1 for the next state
+    horizon = config.get("horizon", 3)
+    history_size = config.get("history_size", 4)
+    seq_len = history_size + horizon
 
     # Environment parameters
     action_dim = config.get("action_dim", 4)
@@ -118,7 +119,8 @@ if __name__ == '__main__':
         policy=eval(config["pol_type"])(**config),
         action_dim=action_dim,
         embed_dim=embed_dim,
-        device=device
+        device=device,
+        horizon=horizon
     )
     if load_checkpoints:
         checkpoint_name = config.get("last_checkpoint")
@@ -190,7 +192,6 @@ if __name__ == '__main__':
             starting_epochs = 0
             if load_checkpoints and checkpoint_name.endswith(".pkl") and epoch :
                 tag = checkpoint_name[:-4]
-                print(tag)
                 try:
                     starting_epochs = int(tag.split("/")[-1])
                 except:
