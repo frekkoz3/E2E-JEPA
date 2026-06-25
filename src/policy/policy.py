@@ -235,20 +235,27 @@ class Policy:
         """Manages a training session"""
         assert self.environment is not None, "Environment must be set for training"
 
-        n_trajectories = kwargs.get("n_trajectories", 100)
+        n_updates = kwargs.get("n_trajectories", 100) # Used as total PPO updates
         save_model = kwargs.get("save_model", False)
         checkpoint = kwargs.get("epochs_per_checkpoint", 10)
         folder_path = kwargs.get("save_path", f"./src/policy/models/")
 
-        for trajectory in range(n_trajectories):
-            state = self.environment.reset()[0]
+        state, _ = self.environment.reset()
 
-            self.train(state, n_trajectories = n_trajectories)
-            if save_model and trajectory % checkpoint == 0:
-                self.save_network(path=f"{folder_path}ep_{trajectory+1}-{n_trajectories}.pth")
+        for update in range(n_updates):
+
+            if isinstance(self, PolicyPPO):
+                state, info = self.train(state, n_updates)
+            else:
+                info = self.train(state, n_updates)
+                state, _ = self.environment.reset() # DQN can reset per episode
+
+            if save_model and update % checkpoint == 0:
+                self.save_network(path=f"{folder_path}ep_{update+1}-{n_updates}.pth")
 
         if save_model:
             self.save_network(path=f"{folder_path}final.pth")
+
 
     def update_parameters(self, **kwargs):
         """Updates the parameters of the architecture based on policy gradient optimization."""
@@ -319,7 +326,7 @@ class PolicyPPO(Policy):
 
         values = torch.cat( [values, last_value], dim=0)
 
-        return states, actions, rewards, values, log_probs, dones
+        return states, actions, rewards, values, log_probs, dones, last_state
 
 
     def _format_state(self, state : Any, bracket : bool = False) -> torch.Tensor:
@@ -392,7 +399,7 @@ class PolicyPPO(Policy):
     def train(self, init_state, n_trajectories : int):
         """PPO full training loop"""
         # Compute rollout
-        states, actions, rewards, values, log_probs, dones = self._get_rollout(state=init_state)
+        states, actions, rewards, values, log_probs, dones, final_state = self._get_rollout(state=init_state)
 
         # Compute advantages and returns
         returns, advantages = self.loss.compute_advantages(last_state_value=values[-1],
@@ -400,7 +407,6 @@ class PolicyPPO(Policy):
                                                            values=values[:-1],
                                                            dones=dones)
 
-        # Dynamically determine batch size
         batch_size = states.shape[0]
 
         states = states.view(batch_size, *states.shape[2:])
@@ -453,13 +459,19 @@ class PolicyPPO(Policy):
                 distribution_history.append(distribution.probs.mean(dim=0).cpu().detach().numpy())
 
         if self.scheduler:
-            self.scheduler.step() # Note: Step scheduler per rollout, not per environment frame
+            self.scheduler.step()
 
-        info = {"loss": np.mean(loss_history), "mean_reward": rewards.mean().item(), "last_distribution": distribution_history[-1]}
+        info = {"loss": np.mean(loss_history),
+                "mean_reward": rewards.mean().item(),
+                "last_distribution": distribution_history[-1]}
+
         if epoch % 10 == 0:
-            print(f"Episode {epoch + 1}/{n_trajectories} \t\t Loss: {info['loss']:.4f}, Mean Value: {info['mean_value']:.4f}, Epsilon: {self.epsilon_strategy.eps:.4f}")
+            print(f"Episode {epoch + 1}/{n_trajectories} \t\t "
+                  f"Loss: {info['loss']:.4f}, "
+                  f"Mean Value: {info['mean_value']:.4f}, "
+                  f"Epsilon: {self.epsilon_strategy.eps:.4f}")
 
-        return info
+        return final_state, info
 
 
     def update_parameters(self, trajectory : torch.Tensor | Tuple[torch.Tensor, ...], **kwargs) -> Dict[str, float | Any]:
@@ -478,7 +490,8 @@ class PolicyPPO(Policy):
 
         Notes
         -----
-        The update is slower than the one for DQN, since it requires (in e2e_jepa.update_parameters() ) to compute the full trajectory of states, actions, next states, rewards, dones.
+        The update is slower than the one for DQN, since it requires (in e2e_jepa.update_parameters() ) to compute
+        the full trajectory of states, actions, next states, rewards, dones.
         """
         z_states, _, z_next_states, actions, rewards, dones, log_probs, values = trajectory
 
@@ -491,7 +504,12 @@ class PolicyPPO(Policy):
         self.network.train()
         for _ in range(self.n_inner_epochs):
             dist, value = self.network(z_states)
-            loss = self.loss(dist = dist, values = value, actions = actions, returns = returns, advantages = advantages, old_log_probs = log_probs)
+            loss = self.loss(dist = dist,
+                             values = value,
+                             actions = actions,
+                             returns = returns,
+                             advantages = advantages,
+                             old_log_probs = log_probs)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -528,38 +546,6 @@ class PolicyDQN(Policy):
         self.buffer_size = kwargs.get("buffer_size", 10000)
         self.buffer = deque(maxlen=self.buffer_size)
         self.batch_size = kwargs.get("batch_size", 64)
-
-    # @torch.no_grad()
-    # def _full_buffer(self):
-    #     """Computes a buffer of size self.buffer_size of trajectories for Off-Policy DQN."""
-    #
-    #     while len(self.buffer) < self.buffer_size:
-    #
-    #         state = self.environment.reset()[0]
-    #
-    #         state = self._format_state(state)
-    #         is_terminal = False
-    #
-    #         while not is_terminal:
-    #             # Action is a scalar integer for a single environment
-    #             action, _ = self.get_action(state, greedy=False)
-    #
-    #             # Step returns scalars and standard Python booleans
-    #             next_state, reward, done, truncated, _ = self.environment.step(action)
-    #             is_terminal = done or truncated
-    #
-    #             next_state_formatted = self._format_state(next_state)
-    #
-    #             # convert to tensors and store in buffer
-    #             action = torch.tensor(action, dtype=torch.int64, device=self.device)
-    #             reward = torch.tensor(reward, dtype=torch.float32, device=self.device)
-    #             is_terminal = torch.tensor(is_terminal, dtype=torch.float32, device=self.device)
-    #
-    #             self.buffer.append((state, action, reward, next_state_formatted, is_terminal))
-    #             state = next_state_formatted
-    #
-    #     # shuffle the buffer to ensure decorrelation
-    #     random.shuffle(self.buffer)
 
 
     def _format_state(self, state : Any, bracket = False) -> torch.Tensor:
