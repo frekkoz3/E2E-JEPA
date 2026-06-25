@@ -27,6 +27,60 @@ GPU = "cuda"
 CPU = "cpu"
 XPU = "xpu"
 
+
+def sample_sequences(buffer_obj, batch_size, seq_len, device):
+    """
+    Samples a batch of contiguous sequences of length `seq_len` from a DQN Replay Buffer.
+    Ensures sequences do not cross episode boundaries (where done=True).
+    """
+    # Accommodate different buffer wrapper implementations
+    buffer = getattr(buffer_obj, 'memory', None) or getattr(buffer_obj, 'buffer', buffer_obj)
+
+    if len(buffer) < batch_size * seq_len:
+        return None
+
+    states, actions, rewards, dones = [], [], [], []
+    buffer_len = len(buffer)
+    attempts = 0
+
+    # Cap attempts to prevent infinite loops if buffer is heavily fragmented
+    while len(states) < batch_size and attempts < batch_size * 5:
+        attempts += 1
+        start_idx = random.randint(0, buffer_len - seq_len)
+
+        # A valid sequence cannot cross an episode boundary (done=True)
+        valid_seq = True
+        for i in range(start_idx, start_idx + seq_len - 1):
+            if float(buffer[i][4]) == 1.0:  # Check if 'done' is True
+                valid_seq = False
+                break
+
+        if valid_seq:
+            seq_s, seq_a, seq_r, seq_d = [], [], [], []
+            for i in range(start_idx, start_idx + seq_len):
+                s, a, r, _, d = buffer[i] # We ignore next_s because x_seq[t+1] provides it natively
+                seq_s.append(s)
+                seq_a.append(a)
+                seq_r.append(torch.tensor(r, dtype=torch.float32) if not isinstance(r, torch.Tensor) else r)
+                seq_d.append(torch.tensor(d, dtype=torch.float32) if not isinstance(d, torch.Tensor) else d)
+
+            states.append(torch.stack(seq_s))
+            actions.append(torch.stack(seq_a))
+            rewards.append(torch.stack(seq_r))
+            dones.append(torch.stack(seq_d))
+
+    if len(states) < batch_size:
+        return None
+
+    # Stack into (B, T, ...)
+    b_states = torch.stack(states).to(device)
+    b_actions = torch.stack(actions).to(device)
+    b_rewards = torch.stack(rewards).to(device)
+    b_dones = torch.stack(dones).to(device)
+
+    return (b_states, b_actions, b_rewards, b_dones)
+# -----------------------------------------------------
+
 if __name__ == '__main__':
     """
         Quick usage (from the root of the project)
@@ -62,6 +116,10 @@ if __name__ == '__main__':
     clean_checkpoints = config.get("clean_checkpoints", True)
     load_checkpoints = config.get("load_checkpoints", False)
     load_checkpoints_path = config.get("load_checkpoints_path", f"{where_save}final.pkl")
+
+    # Sequence parameters
+    history_size = config.get("history_size", 3)
+    seq_len = history_size + 1  # +1 for the next state
 
     # Environment parameters
     action_dim = config.get("action_dim", 4)
@@ -149,7 +207,7 @@ if __name__ == '__main__':
 
                 x_tp1 = torch.tensor(np.expand_dims(x_tp1, 0)).float().to(device=device)
 
-                z_tp1 = trainer.encoder(x_tp1)[:, 0, :]
+                # z_tp1 = trainer.encoder(x_tp1)[:, 0, :]
 
                 # Stream data into the experience buffer seamlessly
                 trainer.buffer.push(x_t.squeeze(0).to(device=CPU),
@@ -167,7 +225,10 @@ if __name__ == '__main__':
                     x_t = x_tp1
 
         # Optimize over collected transitions at the end of the epoch step block
-        metrics = trainer.update_parameters(batch_size, device=device)
+        seq_batch = sample_sequences(trainer.buffer, batch_size, seq_len, device=device)
+
+        metrics = trainer.update_parameters(seq_batch) if seq_batch is not None else None
+
         if metrics:
             print(f"Epoch {epoch} Metrics -> "
                   f"Loss: {metrics['total_loss']:.8f} | "

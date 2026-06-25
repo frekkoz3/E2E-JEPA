@@ -204,6 +204,27 @@ class E2EJEPA:
         return action, info
 
 
+    def encode(self, x_seq):
+        """
+        Encodes a sequence of frames into latent embeddings.
+        x_seq input shape: (Batch, Time, Channels, Height, Width)
+        """
+        B, T = x_seq.shape[0], x_seq.shape[1]
+
+        # 1. Force the flatten: (B, T, C, H, W) -> (B*T, C, H, W)
+        x_flat = x_seq.reshape(B * T, *x_seq.shape[2:])
+
+        # 2. Pass the 4D tensor to the encoder
+        # Note: Depending on your encoder, you might need to ensure x_flat is float
+        output = self.encoder(x_flat.float())
+
+        # 3. Extract CLS token (assuming index 0) and reshape back to (B, T, Embed_Dim)
+        z_flat = output[:, 0, :]
+        z_seq = z_flat.view(B, T, -1)
+
+        return z_seq
+
+
     def predict(self, ctx_emb, ctx_act):
         """Predicts future states autoregressively."""
 
@@ -229,7 +250,7 @@ class E2EJEPA:
             if done:
                 x_tp1 = self.env.death_state()
 
-            z_tp1 = self.encoder(x_tp1)
+            z_tp1 = self.encode(x_tp1)
 
             z_states.append(z_t)
             x_next_states.append(x_tp1)
@@ -259,30 +280,21 @@ class E2EJEPA:
 
         return batch
 
-    def update_parameters(self, batch_size: int, device : str = "cuda") -> Dict[str, float]:
+    def update_parameters(self, batch) -> Dict[str, float]:
         """Samples from active trajectory memory and performs backpropagation."""
-        if len(self.buffer) < batch_size:
-            return {} # Not enough data collected yet
-
         self.encoder.train()
         self.predictor.train()
 
-        # This is completely decoupled
-
-        x_seq, a_seq, r_seq, done_seq = self.buffer.sample(batch_size)
-        x_seq = x_seq.to(device=device)
-        a_seq = a_seq.to(device=device)
-        r_seq = r_seq.to(device=device)
-        done_seq = done_seq.to(device=device)
+        x_seq, a_seq, r_seq, done_seq = batch
 
         B, T = x_seq.shape[0], x_seq.shape[1]
         context_length = T-1
 
-        z_seq = self.encoder(x_seq)
+        z_seq = self.encode(x_seq)
 
-        context_embedding = z_seq[:, :context_length]
-        context_action = a_seq[:, :context_length]
-        target_embedding = z_seq[:, 1:context_length+1].detach()
+        context_embedding = z_seq[:, :-1]
+        context_action = a_seq[:, :-1]
+        target_embedding = z_seq[:, 1:].detach()
 
         prediction_embedding = self.predict(context_embedding, context_action)
 
