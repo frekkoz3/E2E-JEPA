@@ -128,9 +128,6 @@ if __name__ == '__main__':
     x_t, _ = env.reset()
     x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
 
-    # debug
-    print(torch.cuda.is_available())
-
     for epoch in range(total_epochs):
         if epoch % refresh_buffer == 0:
             trainer.buffer.refresh()
@@ -173,7 +170,7 @@ if __name__ == '__main__':
                     x_t = x_tp1
 
         # Optimize over collected transitions at the end of the epoch step block
-        seq_batch = trainer.buffer.sample_sequences(seq_len = seq_len, batch_size = batch_size, device=device)
+        seq_batch = trainer.buffer.sample_sequences(batch_size = batch_size, seq_len=seq_len, device=device)
 
         metrics = trainer.update_parameters(seq_batch) if seq_batch is not None else None
 
