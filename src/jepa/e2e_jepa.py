@@ -88,7 +88,7 @@ class OnlineTrajectoryBuffer:
 
             s_seq, a_seq, r_seq, d_seq = [], [], [], []
             for i in range(start_idx, start_idx+seq_len):
-                s, a, r, s_next, done = self.buffer[i]
+                s, a, r, done = self.buffer[i]
                 s_seq.append(s)
                 a_seq.append(a)
                 r_seq.append(torch.tensor(r, dtype=torch.float32) if not isinstance(r, torch.Tensor) else r)
