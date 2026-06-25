@@ -112,7 +112,8 @@ if __name__ == '__main__':
                               use_adaLN=use_adaLN).to(device=device),
         policy=eval(config["pol_type"])(**config),
         action_dim=action_dim,
-        embed_dim=embed_dim
+        embed_dim=embed_dim,
+        device=device
     )
     if load_checkpoints:
         checkpoint_name = config.get("last_checkpoint")
@@ -135,7 +136,7 @@ if __name__ == '__main__':
                 z_t = trainer.encoder(x_t)[:, 0, :]
                 
                 # Choose action actively using current model state
-                a_t, _ = trainer.get_action(z_t.detach().unsqueeze(0))
+                a_t, _ = trainer.get_action(z_t.detach().unsqueeze(1))
                 
                 # Step the real environment
                 x_tp1, r_t, done, _, info = env.step(a_t)
@@ -144,7 +145,7 @@ if __name__ == '__main__':
                 if info:
                     a_t = info["act"]
 
-                a_t = F.one_hot(a_t, action_dim) # one hot encoding of the action instead of one-dimensional one
+                a_t = F.one_hot(torch.tensor(a_t), action_dim).float() # one hot encoding of the action instead of one-dimensional one
 
                 x_tp1 = torch.tensor(np.expand_dims(x_tp1, 0)).float().to(device=device)
 
@@ -152,7 +153,7 @@ if __name__ == '__main__':
 
                 # Stream data into the experience buffer seamlessly
                 trainer.buffer.push(x_t.squeeze(0).to(device=CPU),
-                                    torch.tensor(a_t).float().to(device=CPU),
+                                    a_t.to(device=CPU),
                                     r_t,
                                     x_tp1.squeeze(0).to(device=CPU),
                                     float(done))
@@ -182,7 +183,6 @@ if __name__ == '__main__':
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:
             starting_epochs = 0
-            print(starting_epochs)
             if load_checkpoints and checkpoint_name.endswith(".pkl") and epoch :
                 tag = checkpoint_name[:-4]
                 print(tag)
@@ -191,7 +191,6 @@ if __name__ == '__main__':
                 except:
                     continue
 
-            print(starting_epochs)
             save_results(f"{where_save}{(starting_epochs+epoch)//epochs_per_checkpoint}.pkl",
                          trainer.predictor,
                          trainer.encoder,
