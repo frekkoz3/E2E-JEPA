@@ -298,9 +298,7 @@ class E2EJEPA:
         done_t = done_seq[:, -1]
 
         if isinstance(self.policy.network, (AttentionPPO, ConvPPO)):
-            # to handle differently
-            trajectory = self.compute_trajectory(z_t, horizon=self.horizon)
-            loss_policy = self.policy.update_parameters(trajectory = trajectory)
+            raise NotImplementedError("Policy update for AttentionPPO and ConvPPO is not implemented yet.")
         else:
             reg_coeff = self.gamma.step(loss_target = loss_pred.detach() ) if self.gamma else 1.0
             loss_policy = self.policy.update_parameters(init_state = z_t_policy,
@@ -321,12 +319,6 @@ class E2EJEPA:
         self.optimizer.zero_grad()
         total_loss.backward()
         self.optimizer.step()
-
-        x_t = x_t.to(device="cpu")
-        a_t = a_t.to(device="cpu")
-        r_t = r_t.to(device="cpu")
-        x_tp1 = x_tp1.to(device="cpu")
-        done = done.to(device="cpu")
 
         return {"total_loss": total_loss.item(),
                 "pred_loss": loss_pred.item(),
