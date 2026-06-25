@@ -39,19 +39,18 @@ class OnlineTrajectoryBuffer:
         self.capacity = capacity
         self.buffer = deque(maxlen=capacity)
 
-    def push(self, x_t, a_t, r_t, x_tp1, done):
-        self.buffer.append((x_t, a_t, r_t, x_tp1, done))
+    def push(self, x_t, a_t, r_t, done):
+        self.buffer.append((x_t, a_t, r_t, done))
 
     def sample(self, batch_size: int) -> Tuple[torch.Tensor, ...]:
         batch = random.sample(self.buffer, batch_size)
-        x_t, a_t, r_t, x_tp1, done = zip(*batch)
+        x_t, a_t, r_t, done = zip(*batch)
 
         # Stack individual steps into batched tensors
         return (
             torch.stack(x_t),
             torch.stack(a_t),
             torch.tensor(r_t, dtype=torch.float32).unsqueeze(-1),
-            torch.stack(x_tp1),
             torch.tensor(done, dtype=torch.float32).unsqueeze(-1)
         )
 
@@ -67,14 +66,13 @@ class OnlineTrajectoryBuffer:
 
         start_idx = self.seq_idx if len(self.buffer) >= self.seq_idx + batch_size else self.seq_idx + batch_size % len(self.buffer)
         batch = list(self.buffer)[start_idx:start_idx + batch_size]
-        x_t, a_t, r_t, x_tp1, done = zip(*batch)
+        x_t, a_t, r_t, done = zip(*batch)
         self.seq_idx = (self.seq_idx + batch_size)
 
         return (
             torch.stack(x_t),
             torch.stack(a_t),
             torch.tensor(r_t, dtype=torch.float32).unsqueeze(-1),
-            torch.stack(x_tp1),
             torch.tensor(done, dtype=torch.float32).unsqueeze(-1)
         )
 

@@ -158,7 +158,6 @@ if __name__ == '__main__':
                 trainer.buffer.push(x_t.squeeze(0).to(device=CPU),
                                     a_t.to(device=CPU),
                                     r_t,
-                                    x_tp1.squeeze(0).to(device=CPU),
                                     float(done))
                 
                 if done:
