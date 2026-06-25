@@ -67,33 +67,79 @@ DEFAULT_SIGREG_NUM_PROJ = 128
 
 # SIGReg
 class SIGReg(nn.Module):
-	"""Sketch isotropic Gaussian regularizer, adapted from LeWM."""
+    """
+    Sketched-Isotropic-Gaussian Regularizer (SIGReg) 
+    as described in LeWM (Maes et al., 2026).
+    """
+    def __init__(self, embed_dim: int, num_projections: int = DEFAULT_SIGREG_NUM_PROJ, num_nodes: int = DEFAULT_SIGREG_KNOTS, device : str = "cuda"):
+        super().__init__()
 
-	def __init__(self, knots: int = DEFAULT_SIGREG_KNOTS, num_proj: int = DEFAULT_SIGREG_NUM_PROJ):
-		super().__init__()
-		self.num_proj = num_proj
+        self.device = device
+        
+        # 1. Generate M unit-norm directions (u_m)
+        # Shape: (embed_dim, num_projections)
+        u_m = torch.randn(embed_dim, num_projections).to(device=device)
+        u_m = torch.nn.functional.normalize(u_m, p=2, dim=0)
+        self.register_buffer('u_m', u_m)
+        
+        # 2. Quadrature nodes uniformly distributed in [0.2, 4]
+        # Shape: (num_nodes,)
+        self.num_nodes = num_nodes
+        t_nodes = torch.linspace(0.2, 4.0, num_nodes, device=device)
+        self.register_buffer('t_nodes', t_nodes)
+        
+        # Trapezoid integration step size
+        self.dt = (4.0 - 0.2) / (num_nodes - 1)
+        
+        # 3. Target Characteristic Function for standard N(0, 1)
+        # phi_0(t) = exp(-t^2 / 2)
+        phi_0 = torch.exp(- (t_nodes ** 2) / 2.0)
+        self.register_buffer('phi_0', phi_0)
+        
+        # 4. Weighting function w(t)
+        # Using w(t) = exp(-t^2 / 2) as an example weight
+        w_t = torch.exp(- (t_nodes ** 2) / 2.0)
+        self.register_buffer('w_t', w_t)
 
-		t = torch.linspace(0, 3, knots, dtype=torch.float32)
-		dt = 3 / (knots - 1)
-		weights = torch.full((knots,), 2 * dt, dtype=torch.float32)
-		weights[[0, -1]] = dt
-		window = torch.exp(-t.square() / 2.0)
+    def forward(self, z: torch.Tensor) -> torch.Tensor:
+        """
+        z: Latent embeddings tensor of shape (Batch, Seq, Embed_Dim) or (N, Embed_Dim)
+        """
+        # Flatten temporal/batch dimensions to treat all states as a single set of points
+        if z.dim() > 2:
+            z = z.reshape(-1, z.size(-1))
+            
+        N = z.size(0)
 
-		self.register_buffer("t", t)
-		self.register_buffer("phi", window)
-		self.register_buffer("weights", weights * window)
+        # Step 1: Project embeddings onto the M random directions
+        # h^(m) = Z * u^(m) -> Shape: (N, num_projections)
+        h = torch.matmul(z, self.u_m)
 
-	def forward(self, proj: torch.Tensor) -> torch.Tensor:
-		if proj.ndim != 3:
-			raise ValueError(f"SIGReg expects a 3D tensor, got shape {tuple(proj.shape)}")
+        # Step 2: Compute Empirical Characteristic Function (ECF)
+        # We need the product of t_nodes and h for the exponential e^(i * t * h)
+        # th shape: (num_nodes, N, num_projections)
+        th = torch.einsum('k,nm->knm', self.t_nodes, h.to(device=z.device))
+        
+        # Real and Imaginary parts of ECF over the N samples
+        # ECF_real and ECF_imag shape: (num_nodes, num_projections)
+        ecf_real = torch.mean(torch.cos(th), dim=1)
+        ecf_imag = torch.mean(torch.sin(th), dim=1)
 
-		projections = torch.randn(proj.size(-1), self.num_proj, device=proj.device)
-		projections = projections / projections.norm(p=2, dim=0, keepdim=True).clamp_min(1e-8)
+        # Step 3: Compute the squared difference |phi_N(t) - phi_0(t)|^2
+        # phi_0 is unsqueezed to broadcast over the num_projections dimension
+        phi_0_k = self.phi_0.unsqueeze(1)
+        diff_sq = (ecf_real - phi_0_k) ** 2 + ecf_imag ** 2
 
-		x_t = (proj @ projections).unsqueeze(-1) * self.t
-		err = (x_t.cos().mean(dim=-3) - self.phi).square() + x_t.sin().mean(dim=-3).square()
-		statistic = (err @ self.weights) * proj.size(-2)
-		return statistic.mean()
+        # Step 4: Apply weighting function and integrate using Trapezoidal rule
+        integrand = self.w_t.unsqueeze(1) * diff_sq
+        
+        # integral shape: (num_projections,)
+        integral = torch.trapz(integrand, dx=self.dt, dim=0)
+
+        # Step 5: Average the test statistic over the M projections
+        loss = torch.mean(integral)
+
+        return loss
 
 # E2E-JEPA
 class E2EJEPA:
@@ -117,7 +163,7 @@ class E2EJEPA:
         self.env = env
         self.encoder = encoder
         self.predictor = predictor
-        self.sigreg = SIGReg()
+        self.sigreg = SIGReg(embed_dim=embed_dim)
         self.policy = policy
         self.action_dim = action_dim
         self.gamma = gamma
@@ -219,15 +265,11 @@ class E2EJEPA:
         # Latent Mappings
         z_t = self.encoder(x_t)[:, 0, :]
         z_tp1_target = self.encoder(x_tp1)[:, 0, :]
+        
         # Add a sequence dimension: [32, 64] -> [32, 1, 64]
         z_t_seq = z_t.unsqueeze(1) 
         # Pass through predictor and remove the sequence dimension: [32, 1, 64] -> [32, 64]
         z_tp1_pred = self.predictor(z_t_seq, a_t).squeeze(1)
-
-        # Collapsing Check
-        print(f"Batch {0}, Element {0}: z_t : {z_t[0][0].cpu().detach().numpy()} \t\t "
-              f"z_tp1_target : {z_tp1_target[0][0].cpu().detach().numpy()} \t\t "
-              f"z_tp1_pred : {z_tp1_pred[0][0].cpu().detach().numpy()}\n")
 
         # Prediction Loss
         loss_pred = F.mse_loss(z_tp1_pred, z_tp1_target)

@@ -127,7 +127,7 @@ class Transformer(nn.Module):
             x = self.input_proj(x)
 
         if c is not None and hasattr(self, "cond_proj"):
-            c = self.cond_proj(c.unsqueeze(-1))
+            c = self.cond_proj(c)
             c = c[:, None, :]
 
         for block in self.layers:
