@@ -70,9 +70,9 @@ policy:
 
 
 training:
-  device : "cpu"
+  device : "cuda"
 
-  n_epochs : 100
+  n_epochs : 1000
   steps_per_epoch : 256
 
   batch_size : 32
@@ -87,7 +87,7 @@ training:
 
 
 save:
-  epochs_per_checkpoint: 10
+  epochs_per_checkpoint: 25
   save_model: True
   clean_checkpoints : True
   load_checkpoints : False
