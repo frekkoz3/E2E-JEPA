@@ -112,7 +112,8 @@ if __name__ == '__main__':
                               use_adaLN=use_adaLN).to(device=device),
         policy=eval(config["pol_type"])(**config),
         action_dim=action_dim,
-        embed_dim=embed_dim
+        embed_dim=embed_dim,
+        device=device
     )
     if load_checkpoints:
         checkpoint_name = config.get("last_checkpoint")

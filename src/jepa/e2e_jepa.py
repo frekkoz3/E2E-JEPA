@@ -158,12 +158,13 @@ class E2EJEPA:
         horizon : int = 1,
         alpha: Regularizer = LinearRegularizer(reg_weight_start=0.01, reg_weight_end=0.02, reg_weight_step=1),
         beta : Regularizer | None = None,
-        pol_loss_regularizer: Regularizer = PropToOtherLossChangeRegularizer()
+        pol_loss_regularizer: Regularizer = PropToOtherLossChangeRegularizer(), 
+        device = "cuda"
     ):
         self.env = env
         self.encoder = encoder
         self.predictor = predictor
-        self.sigreg = SIGReg(embed_dim=embed_dim)
+        self.sigreg = SIGReg(embed_dim=embed_dim, device=device)
         self.policy = policy
         self.action_dim = action_dim
         self.gamma = gamma
