@@ -78,12 +78,12 @@ class SnakeEnv(gym.Env):
         self.canvas = None  
         self.clock = None
         self.font = None
+        self._setup_window()
         self._load_and_scale_sprites()  
         self.reset()
-        
-    def _load_and_scale_sprites(self):
-        """Loads assets and resizes them to match the environment's CELL_SIZE. In addiction initialize pygame"""
 
+    def _setup_window(self):
+        """Initialize Pygame and the correct render mode."""
         if self.window is None and self.canvas is None:
             pygame.init()
             pygame.font.init()
@@ -106,7 +106,8 @@ class SnakeEnv(gym.Env):
                     self.canvas = pygame.display.set_mode((WIDTH, TOTAL_HEIGHT), pygame.HIDDEN)
                 except pygame.error:
                     self.canvas = pygame.display.set_mode((WIDTH, TOTAL_HEIGHT))
-
+    def _load_and_scale_sprites(self):
+        """Loads assets and resizes them to match the environment's CELL_SIZE."""
         def load_sp(path):
             img = pygame.image.load(path).convert_alpha()
             return pygame.transform.scale(img, (CELL_SIZE, CELL_SIZE))
