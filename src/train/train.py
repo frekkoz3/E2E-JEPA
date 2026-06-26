@@ -228,7 +228,9 @@ if __name__ == '__main__':
                          trainer.encoder,
                          trainer.policy.network,
                          trainer.optimizer,
-                         trainer.scheduler)
+                         trainer.scheduler,
+                         trainer.policy.optimizer,
+                         trainer.policy.scheduler)
             if clean_checkpoints:
                 old = Path(f"{where_save}{(starting_epoch+epoch)//epochs_per_checkpoint - 1}.pkl")
                 if old.exists():

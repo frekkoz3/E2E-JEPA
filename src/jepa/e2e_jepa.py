@@ -8,6 +8,8 @@ r"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim import SGD, Adam, AdamW
+from torch.optim.lr_scheduler import ExponentialLR, StepLR
 import random
 from collections import deque
 from typing import Dict, Any, Tuple
@@ -18,24 +20,26 @@ from src.policy.regularizers import *
 from src.policy.policy import Policy
 
 
-def save_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module, optimizer: torch.optim.Optimizer, scheduler : torch.optim.lr_scheduler._LRScheduler):
+def save_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module, optimizer: torch.optim.Optimizer, scheduler : torch.optim.lr_scheduler._LRScheduler, policy_optimizer : torch.optim.Optimizer, policy_scheduler : torch.optim.lr_scheduler._LRScheduler):
     torch.save({
         "predictor": predictor.state_dict(), 
         "encoder": encoder.state_dict(), 
         "policy_net": policy_net.state_dict(),
         "optimizer": optimizer.state_dict(),
-        "scheduler": scheduler.state_dict()
+        "scheduler": scheduler.state_dict(),
+        "pol_optimizer": policy_optimizer.state_dict() if policy_optimizer is not None else None,
+        "pol_scheduler": policy_scheduler.state_dict() if policy_scheduler is not None else None
     }, where)
 
-def load_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module, optimizer : torch.optim.Optimizer, scheduler : torch.optim.lr_scheduler._LRScheduler, policy_optimizer : torch.optim.Optimizer | None = None, policy_scheduler : torch.optim.lr_scheduler._LRScheduler | None = None):
+def load_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module, optimizer : torch.optim.Optimizer, scheduler : torch.optim.lr_scheduler._LRScheduler, policy_optimizer : torch.optim.Optimizer, policy_scheduler : torch.optim.lr_scheduler._LRScheduler):
     ldr = torch.load(where, weights_only=False, map_location="cpu")
     predictor.load_state_dict(ldr["predictor"])
     encoder.load_state_dict(ldr["encoder"])
     policy_net.load_state_dict(ldr["policy_net"])
     optimizer.load_state_dict(ldr["optimizer"])
     scheduler.load_state_dict(ldr["scheduler"])
-    policy_optimizer.load_state_dict(ldr["policy_optimizer"]) if policy_optimizer is not None else None
-    policy_scheduler.load_state_dict(ldr["policy_scheduler"]) if policy_scheduler is not None else None
+    policy_optimizer.load_state_dict(ldr["pol_optimizer"])
+    policy_scheduler.load_state_dict(ldr["pol_scheduler"])
 
 # Experience Replay Buffer for Online Trajectories
 class OnlineTrajectoryBuffer:
@@ -198,25 +202,24 @@ class SIGReg(nn.Module):
 # E2E-JEPA
 class E2EJEPA:
     def __init__(
-        self,
-        env : SnakeEnv,
-        encoder: nn.Module,
-        predictor: nn.Module,
-        policy: Policy,
-        action_dim: int,
-        embed_dim: int,
-        optimizer_name : str = "AdamW",
-        lr_init : float = 1e-4,
-        lr_scheduler : str = "ExponentialLR",
-        lr_step_size : int = 10,
-        lr_gamma : float = 0.9,
-        buffer_capacity: int = 20000,
-        coupled_dynamic = False,
-        horizon : int = 1,
-        alpha: Regularizer = LinearRegularizer(reg_weight_start=0.01, reg_weight_end=0.02, reg_weight_step=1),
-        beta : Regularizer | None = None,
-        pol_loss_regularizer: Regularizer = PropToOtherLossChangeRegularizer(),
-        device = "cuda"
+            self,
+            env : SnakeEnv,
+            encoder: nn.Module,
+            predictor: nn.Module,
+            policy: Policy,
+            action_dim: int,
+            embed_dim: int,
+            optimizer_name : str = "AdamW",
+            lr_init : float = 1e-4,
+            lr_scheduler : str = "ExponentialLR",
+            lr_gamma : float = 0.9,
+            buffer_capacity: int = 20000,
+            coupled_dynamic = False,
+            horizon : int = 1,
+            alpha: Regularizer = LinearRegularizer(reg_weight_start=0.01, reg_weight_end=0.02, reg_weight_step=1),
+            beta : Regularizer | None = None,
+            pol_loss_regularizer: Regularizer = PropToOtherLossChangeRegularizer(),
+            device = "cuda"
     ):
 
         self.env = env
@@ -234,6 +237,9 @@ class E2EJEPA:
         self.beta = beta
         self.gamma = pol_loss_regularizer
 
+
+        assert optimizer_name in ["SGD", "Adam", "AdamW"], f"Unsupported optimizer: {optimizer_name}. Supported are 'SGD', 'Adam', 'AdamW'"
+        assert lr_scheduler in ["ExponentialLR", "StepLR"], f"Unsupported scheduler: {lr_scheduler}. Supported are 'ExponentialLR', 'StepLR'"
         if coupled_dynamic:
             self.optimizer = eval(optimizer_name)(
                 list(self.encoder.parameters()) +
