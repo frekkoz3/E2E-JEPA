@@ -153,7 +153,8 @@ class Policy:
         """Sets the optimizer for training the network."""
         maps = {
             "Adam": torch.optim.Adam,
-            "SGD": torch.optim.SGD
+            "SGD": torch.optim.SGD,
+            "AdamW": torch.optim.AdamW
         }
 
         # Assertions
