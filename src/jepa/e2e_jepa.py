@@ -18,18 +18,24 @@ from src.policy.regularizers import *
 from src.policy.policy import Policy
 
 
-def save_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module):
+def save_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module, optimizer: torch.optim.Optimizer, scheduler : torch.optim.lr_scheduler._LRScheduler):
     torch.save({
         "predictor": predictor.state_dict(), 
         "encoder": encoder.state_dict(), 
-        "policy_net": policy_net.state_dict()
+        "policy_net": policy_net.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "scheduler": scheduler.state_dict()
     }, where)
 
-def load_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module):
+def load_results(where: str, predictor: nn.Module, encoder: nn.Module, policy_net: nn.Module, optimizer : torch.optim.Optimizer, scheduler : torch.optim.lr_scheduler._LRScheduler, policy_optimizer : torch.optim.Optimizer | None = None, policy_scheduler : torch.optim.lr_scheduler._LRScheduler | None = None):
     ldr = torch.load(where, weights_only=False, map_location="cpu")
     predictor.load_state_dict(ldr["predictor"])
     encoder.load_state_dict(ldr["encoder"])
     policy_net.load_state_dict(ldr["policy_net"])
+    optimizer.load_state_dict(ldr["optimizer"])
+    scheduler.load_state_dict(ldr["scheduler"])
+    policy_optimizer.load_state_dict(ldr["policy_optimizer"]) if policy_optimizer is not None else None
+    policy_scheduler.load_state_dict(ldr["policy_scheduler"]) if policy_scheduler is not None else None
 
 # Experience Replay Buffer for Online Trajectories
 class OnlineTrajectoryBuffer:
@@ -199,7 +205,11 @@ class E2EJEPA:
         policy: Policy,
         action_dim: int,
         embed_dim: int,
-        lr: float = 1e-4,
+        optimizer_name : str = "AdamW",
+        lr_init : float = 1e-4,
+        lr_scheduler : str = "ExponentialLR",
+        lr_step_size : int = 10,
+        lr_gamma : float = 0.9,
         buffer_capacity: int = 20000,
         coupled_dynamic = False,
         horizon : int = 1,
@@ -208,36 +218,39 @@ class E2EJEPA:
         pol_loss_regularizer: Regularizer = PropToOtherLossChangeRegularizer(),
         device = "cuda"
     ):
+
         self.env = env
+
         self.encoder = encoder
         self.predictor = predictor
         self.sigreg = SIGReg(embed_dim=embed_dim, device=device)
         self.policy = policy
+
         self.action_dim = action_dim
 
         self.horizon = horizon
-        
-        self.buffer = OnlineTrajectoryBuffer(capacity=buffer_capacity)
 
         self.alpha = alpha
         self.beta = beta
         self.gamma = pol_loss_regularizer
 
         if coupled_dynamic:
-            self.optimizer = torch.optim.AdamW(
+            self.optimizer = eval(optimizer_name)(
                 list(self.encoder.parameters()) +
                 list(self.predictor.parameters()) +
                 list(self.policy.network.parameters()),
-                lr=lr
+                lr=lr_init
             )
         else:
-            self.optimizer = torch.optim.AdamW(
+            self.optimizer = eval(optimizer_name)(
                 list(self.encoder.parameters()) +
                 list(self.predictor.parameters()),
-                lr= lr
+                lr= lr_init
             )
+        self.scheduler = eval(lr_scheduler)(self.optimizer, gamma=lr_gamma)
 
         # SIGReg projections base vector
+        self.buffer = OnlineTrajectoryBuffer(capacity=buffer_capacity)
         self.register_buffer("u_m", F.normalize(torch.randn(embed_dim, 32), p=2, dim=0))
 
 
@@ -366,10 +379,8 @@ class E2EJEPA:
         target_action = a_seq[:, -self.horizon:]
 
         if self.horizon > 1:
-            print("I was here PUTA MADREEEEE")
             prediction_embedding = self.autoregressive_rollout(context_embedding, context_action, target_action)
         else:
-            print("I am here PUTA MADREEEEE")
             prediction_embedding = self.predict(context_embedding, context_action)[:, -1:, ...]
 
         # Prediction Loss
@@ -398,7 +409,7 @@ class E2EJEPA:
         # We can just sum them as they are
         alpha_val = self.alpha.step(loss_reg = loss_sigreg, loss_target = loss_pred)
         total_loss = (
-            loss_pred + 
+            loss_pred +
             alpha_val * loss_sigreg
         )
 
