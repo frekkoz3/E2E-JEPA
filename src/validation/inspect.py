@@ -10,12 +10,15 @@ import cv2
 import torch
 import argparse
 import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
 
 from src.jepa.transformers import VisualTransformer, Predictor
 from src.jepa.e2e_jepa import *
-from src.game.snake import SnakeEnv, TOTAL_HEIGHT, GRID_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT
+from src.game.snake import SnakeEnv, TOTAL_HEIGHT, GRID_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT, GRID_WIDTH
 from src.policy.policy import Policy, PolicyDQN, PolicyPPO
 from src.utils.utils import flat_config
+from src.validation.clustering import plot_clusters
 
 from torch.optim import lr_scheduler, Adam, AdamW
 from torch.optim.lr_scheduler import ExponentialLR
@@ -109,11 +112,11 @@ if __name__ == '__main__':
                  model.encoder,
                  model.policy.network,
                  model.optimizer,
-                 model.scheduler)
-                 #model.policy.optimizer,
-                 #model.policy.scheduler
-                 #)
+                 model.scheduler,
+                 model.policy.optimizer,
+                 model.policy.scheduler)
 
+    # Experiment 1: Visualize the distribution of selected actions
     selected_actions = []
 
     for sample in range(args.n_samples):
@@ -132,3 +135,30 @@ if __name__ == '__main__':
     print("Action distribution:")
     for action, count in enumerate(action_counts):
         print(f"Action {action}: {count} times ({(count / args.n_samples) * 100:.2f}%)")
+
+    # Experiment 2: Cluster embeddings from random states and visualize the clusters
+    all_embeddings = []
+    all_frames = []
+
+    env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=config.get("difficulty"))
+
+
+    for _ in range(4):  # Generate 25 random states
+        # Generate two random ints for the apple position
+        apple_x = np.random.randint(0, GRID_WIDTH)
+        apple_y = np.random.randint(0, GRID_HEIGHT)
+
+        for _ in range(25):
+            x_t = env._generate_random_frame((apple_x, apple_y))
+            all_frames.append(np.transpose(x_t, (2, 1, 0)))
+            x_t_tensor = torch.from_numpy(x_t).unsqueeze(0).float().to(device)
+            z_t = model.encoder(x_t_tensor)
+            all_embeddings.append(z_t[:, 0, :].detach().cpu().numpy())
+
+    # Clustering embeddings
+    embeddings = np.vstack(all_embeddings)
+    n_clusters = min(4, len(embeddings))
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
+    labels = kmeans.fit_predict(embeddings)
+
+    plot_clusters(all_frames, 4, 4, labels, "cluster_visualization.png")
