@@ -205,8 +205,7 @@ if __name__ == '__main__':
                   f"Loss: {metrics['total_loss']:.8f} | "
                   f"Pred: {metrics['pred_loss']:.8f} | "
                   f"Policy : {metrics['policy_loss']:.8f} | "
-                  f"SigReg: {metrics['sigreg_loss']:.8f} | "
-                  f"AvgNorm: {metrics['avg_norm_zt']:.8f}") 
+                  f"SigReg: {metrics['sigreg_loss']:.8f} ") 
             # Add also Learning rate and epsilon parameter to the metrics dictionary
             metrics.update({
                 "learning_rate": trainer.optimizer.param_groups[0]['lr'],
