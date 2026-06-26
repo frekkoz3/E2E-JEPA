@@ -90,7 +90,7 @@ save:
   epochs_per_checkpoint: 5
   save_model: True
   clean_checkpoints : True
-  load_checkpoints : True
+  load_checkpoints : False
   last_checkpoint : "final.pkl"
   #save_path: "./models/e2e/"
 
