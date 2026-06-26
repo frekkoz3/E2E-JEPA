@@ -205,12 +205,12 @@ if __name__ == '__main__':
                   f"Loss: {metrics['total_loss']:.8f} | "
                   f"Pred: {metrics['pred_loss']:.8f} | "
                   f"Policy : {metrics['policy_loss']:.8f} | "
-                  f"SigReg: {metrics['sigreg_loss']:.8f}")
+                  f"SigReg: {metrics['sigreg_loss']:.8f} | "
+                  f"AvgNorm: {metrics['avg_norm_zt']:.8f}") 
             # Add also Learning rate and epsilon parameter to the metrics dictionary
             metrics.update({
                 "learning_rate": trainer.optimizer.param_groups[0]['lr'],
-                "epsilon": trainer.policy.epsilon_strategy.eps,
-                "avg_norm_z_t" : z_t.detach().norm(-1).mean().to("cpu")
+                "epsilon": trainer.policy.epsilon_strategy.eps
             })
             print(metrics)
             metrics_collector.add_metric(metrics)
@@ -239,10 +239,9 @@ if __name__ == '__main__':
                     old.unlink()
     
     if clean_checkpoints:
-        import math
         # Removing the last checkpoint searching for the correct index with floor and ceil functions
-        old_ceil = Path(f"{where_save}{math.ceil((starting_epoch + total_epochs)/epochs_per_checkpoint)}.pkl")
-        old_floor = Path(f"{where_save}{math.floor((starting_epoch + total_epochs)/epochs_per_checkpoint)}.pkl")
+        old_ceil = Path(f"{where_save}{(starting_epoch + total_epochs)//epochs_per_checkpoint-1}.pkl")
+        old_floor = Path(f"{where_save}{(starting_epoch + total_epochs)//epochs_per_checkpoint+1}.pkl")
         if old_ceil.exists():
             old_ceil.unlink()
         if old_floor.exists():

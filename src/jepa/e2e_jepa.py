@@ -288,7 +288,7 @@ class E2EJEPA:
 
     def get_action(self, state: torch.Tensor, greedy = False) -> Tuple[torch.Tensor | Any, tuple[Any, Any]]:
         """Phase-Based Exploration: Generates actions on live frames."""
-        action, info = self.policy.get_action(state=torch.nn.functional.normalize(state), greedy=greedy)
+        action, info = self.policy.get_action(state=state, greedy=greedy)
         return action, info
 
 
@@ -389,7 +389,7 @@ class E2EJEPA:
             predictions.append(z_next)
             z_seq = torch.cat([z_seq, z_next], dim=1)
 
-        return torch.cat(predictions, dim=1)
+        return torch.cat(predictions, dim=1) 
 
 
     def update_parameters(self, batch) -> Dict[str, float]:
@@ -427,7 +427,7 @@ class E2EJEPA:
             raise NotImplementedError("Policy update for AttentionPPO and ConvPPO is not implemented yet.")
         else:
             reg_coeff = self.gamma.step(loss_target = loss_pred.detach() ) if self.gamma else 1.0
-            loss_policy = self.policy.update_parameters(init_state = torch.nn.functional.normalize(z_t_policy),
+            loss_policy = self.policy.update_parameters(init_state = z_t_policy,
                                                         next_state = z_tp1_target,
                                                         actions = a_t,
                                                         rewards = r_t,
@@ -453,7 +453,7 @@ class E2EJEPA:
         return {"total_loss": total_loss.item(),
                 "pred_loss": loss_pred.item(),
                 "policy_loss":  loss_policy,
-                "sigreg_loss": loss_sigreg.item()
+                "sigreg_loss": loss_sigreg.item(),
                 }
 
 if __name__ == "__main__":
