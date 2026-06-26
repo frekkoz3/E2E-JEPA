@@ -53,18 +53,18 @@ policy:
   epsilon_strategy: "EpsilonGreedy"
   epsilon_start: 1.0
   epsilon_end: 0.05
-  epsilon_coeff: 0.99995
+  epsilon_coeff: 0.99975
 
   pol_input_dim : 192
   pol_output_dim : 4
   pol_num_hidden_layer : 6
-  pol_dim_hidden_layer : [512, 2048, 4192, 1024, 256, 64]
+  pol_dim_hidden_layer : [512, 1024, 2048, 1024, 256, 64]
 
 
 training:
   device : "cuda"
 
-  n_epochs : 1000
+  n_epochs : 5000
   steps_per_epoch : 256
 
   batch_size : 32
