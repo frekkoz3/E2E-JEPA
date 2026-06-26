@@ -208,7 +208,8 @@ if __name__ == '__main__':
             # Add also Learning rate and epsilon parameter to the metrics dictionary
             metrics.update({
                 "learning_rate": trainer.optimizer.param_groups[0]['lr'],
-                "epsilon": trainer.policy.epsilon_strategy.eps
+                "epsilon": trainer.policy.epsilon_strategy.eps,
+                "avg_norm_z_t" : z_t.detach().norm(-1).mean().to("cpu")
             })
             print(metrics)
             metrics_collector.add_metric(metrics)
