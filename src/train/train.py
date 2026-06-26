@@ -14,6 +14,8 @@ import torch
 import shutil
 from pathlib import Path
 
+from torch.optim import lr_scheduler
+
 from src.jepa.transformers import VisualTransformer, Predictor
 from src.game.snake import SnakeEnv, TOTAL_HEIGHT, GRID_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT
 from src.policy.policy import Policy, PolicyDQN, PolicyPPO
@@ -66,6 +68,13 @@ if __name__ == '__main__':
     clean_checkpoints = config.get("clean_checkpoints", True)
     load_checkpoints = config.get("load_checkpoints", False)
     load_checkpoints_path = config.get("load_checkpoints_path", f"{where_save}final.pkl")
+
+    # Optimizer parameters
+    optimizer = config.get("optimizer", "Adam")
+    lr_init = config.get("lr_init", 1e-4)
+    lr_scheduler = config.get("lr_scheduler", "ExponentialLR")
+    lr_step_size = config.get("lr_step_size", 10)
+    lr_gamma = config.get("lr_gamma", 0.9)
 
     # Sequence parameters
     horizon = config.get("horizon", 3)
@@ -122,12 +131,23 @@ if __name__ == '__main__':
         policy=eval(config["pol_type"])(**config),
         action_dim=action_dim,
         embed_dim=embed_dim,
+        optimizer_name = optimizer,
+        lr_init = lr_init,
+        lr_scheduler = lr_scheduler,
+        lr_gamma = lr_gamma,
         device=device,
-        horizon=horizon
+        horizon=horizon,
     )
     if load_checkpoints:
         checkpoint_name = config.get("last_checkpoint")
-        load_results(f"{default_save_location}/{checkpoint_name}", trainer.predictor, trainer.encoder, trainer.policy.network)
+        load_results(f"{default_save_location}/{checkpoint_name}",
+                     trainer.predictor,
+                     trainer.encoder,
+                     trainer.policy.network,
+                     trainer.optimizer,
+                     trainer.scheduler,
+                     trainer.policy.optimizer,
+                     trainer.policy.scheduler)
     
     env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=difficulty, rescale_frames = rescale_frames)
     x_t, _ = env.reset()
@@ -196,6 +216,10 @@ if __name__ == '__main__':
             else:
                 metrics_collector.save_metrics(f"{where_save}metrics.csv", append = True)
 
+        # Adjust learning rate scheduler
+        if epoch%lr_step_size == 0:
+            trainer.scheduler.step()
+
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:
             starting_epochs = 0
@@ -209,7 +233,9 @@ if __name__ == '__main__':
             save_results(f"{where_save}{(starting_epochs+epoch)//epochs_per_checkpoint}.pkl",
                          trainer.predictor,
                          trainer.encoder,
-                         trainer.policy.network)
+                         trainer.policy.network,
+                         trainer.optimizer,
+                         trainer.scheduler)
             if clean_checkpoints:
                 old = Path(f"{where_save}{(starting_epochs+epoch)//epochs_per_checkpoint - 1}.pkl")
                 if old.exists():
