@@ -370,6 +370,10 @@ class E2EJEPA:
         # Anti-Collapse Loss
         loss_sigreg = self.sigreg(context_embedding.transpose(0, 1))
 
+        # Embedding average norm and variance
+        avg_norm = context_embedding.norm(dim=-1).mean()
+        var = context_embedding.var(dim=-1).mean()
+
         if isinstance(self.policy.network, (AttentionPPO, ConvPPO)):
             raise NotImplementedError("Policy update for AttentionPPO and ConvPPO is not implemented yet.")
         else:
@@ -420,7 +424,9 @@ class E2EJEPA:
         return {"total_loss": total_loss.item(),
                 "pred_loss": loss_pred.item(),
                 "policy_loss":  loss_policy,
-                "sigreg_loss": loss_sigreg.item()
+                "sigreg_loss": loss_sigreg.item(),
+                "avg_norm": avg_norm.item(),
+                "variance": var.item()
                 }
 
 if __name__ == "__main__":
