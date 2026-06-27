@@ -460,10 +460,14 @@ class SnakeEnv(gym.Env):
             self.window = None
             self.canvas = None
 
-    def _generate_random_frame(self, apple_pos : tuple[int, int] | None = None, seed = None):
+    def _generate_random_frame(self, apple_pos : tuple[int, int] | None = None, snake_pos : tuple[int, int] | None = None, snake_dir : tuple[int, int] | None = None,  seed = None):
         self.reset(seed)
         if apple_pos:
             self.food = apple_pos
+        if snake_pos:
+            self.snake = [snake_pos]
+        if snake_dir:
+            self.direction = snake_dir
         return self._render_frame()
 
 import argparse
