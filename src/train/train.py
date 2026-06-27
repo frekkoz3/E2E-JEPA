@@ -201,11 +201,6 @@ if __name__ == '__main__':
         metrics = trainer.update_parameters(seq_batch) if seq_batch is not None else None
 
         if metrics:
-            print(f"Epoch {epoch} Metrics -> "
-                  f"Loss: {metrics['total_loss']:.8f} | "
-                  f"Pred: {metrics['pred_loss']:.8f} | "
-                  f"Policy : {metrics['policy_loss']:.8f} | "
-                  f"SigReg: {metrics['sigreg_loss']:.8f} ") 
             # Add also Learning rate and epsilon parameter to the metrics dictionary
             metrics.update({
                 "learning_rate": trainer.optimizer.param_groups[0]['lr'],

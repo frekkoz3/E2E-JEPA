@@ -420,8 +420,7 @@ class E2EJEPA:
         return {"total_loss": total_loss.item(),
                 "pred_loss": loss_pred.item(),
                 "policy_loss":  loss_policy,
-                "sigreg_loss": loss_sigreg.item(),
-                "avg_var" : z_seq.var(0).mean()
+                "sigreg_loss": loss_sigreg.item()
                 }
 
 if __name__ == "__main__":
