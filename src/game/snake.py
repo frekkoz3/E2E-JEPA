@@ -29,7 +29,7 @@ RESOURCES_PATH = "src/game/resources/"
 class SnakeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": FPS}
 
-    def __init__(self, render_mode=None, max_step=100, observation_type="grid", difficulty=0, rescale_frames : bool = False, **kwargs):
+    def __init__(self, render_mode=None, max_step=100, observation_type="grid", difficulty=0, rescale_frames : bool = False, using_grass : bool = False, **kwargs):
         """
         Snake Environment
 
@@ -61,6 +61,8 @@ class SnakeEnv(gym.Env):
             self.observation_space = spaces.Box(
                 low=0, high=4, shape=(GRID_HEIGHT, GRID_WIDTH), dtype=np.uint8
             )
+
+        self.using_grass = using_grass
             
         if kwargs == {}:
             self.reward_food = 20
@@ -132,13 +134,14 @@ class SnakeEnv(gym.Env):
             for i, obs in enumerate(obstacles):
                 self.sprites[f"obstacle_{i}"] = load_sp(f"{RESOURCES_PATH}obstacles/{obs}.png")
 
-            grass_categories = ["neutral", "flower", "white"]
+            if self.using_grass:
+                grass_categories = ["neutral", "flower", "white"]
 
-            for piece in grass_categories:
-                i = 1
-                while os.path.exists(f"{RESOURCES_PATH}grass/{piece}_{i}.png"):
-                    self.sprites[f"{piece}_{i}"] = load_sp(f"{RESOURCES_PATH}grass/{piece}_{i}.png")
-                    i += 1
+                for piece in grass_categories:
+                    i = 1
+                    while os.path.exists(f"{RESOURCES_PATH}grass/{piece}_{i}.png"):
+                        self.sprites[f"{piece}_{i}"] = load_sp(f"{RESOURCES_PATH}grass/{piece}_{i}.png")
+                        i += 1
 
             self.sprites_loaded = True
 
@@ -217,27 +220,30 @@ class SnakeEnv(gym.Env):
 
         if reset: # Setting for the first time everything
             self.grass_background = pygame.Surface((WIDTH, GAME_HEIGHT))
-            self.grass_tiles = [['' for j in range (GRID_WIDTH)] for i in range (GRID_HEIGHT)]
+            self.grass_background.fill("#3d8250")
 
-            neutral_tiles = [k for k in self.sprites.keys() if "neutral" in k]
-            flower_tiles = [k for k in self.sprites.keys() if "flower" in k]
-            white_tiles = [k for k in self.sprites.keys() if "white" in k]
+            if self.using_grass:
+                self.grass_tiles = [['' for j in range (GRID_WIDTH)] for i in range (GRID_HEIGHT)]
 
-            weights = [2, 6, 2]
+                neutral_tiles = [k for k in self.sprites.keys() if "neutral" in k]
+                flower_tiles = [k for k in self.sprites.keys() if "flower" in k]
+                white_tiles = [k for k in self.sprites.keys() if "white" in k]
 
-            for row in range(GRID_HEIGHT):
-                for col in range(GRID_WIDTH):
-                    chosen_category = random.choices(grass_categories, weights=weights, k=1)[0]
-                    
-                    if chosen_category == "neutral":
-                        tile = random.choice(neutral_tiles)
-                    elif chosen_category == "flower":
-                        tile = random.choice(flower_tiles)
-                    else:
-                        tile = random.choice(white_tiles)
-                    
-                    self.grass_tiles[row][col] = tile
-                    self.grass_background.blit(self.sprites[tile], (col * CELL_SIZE, row * CELL_SIZE))
+                weights = [2, 6, 2]
+
+                for row in range(GRID_HEIGHT):
+                    for col in range(GRID_WIDTH):
+                        chosen_category = random.choices(grass_categories, weights=weights, k=1)[0]
+                        
+                        if chosen_category == "neutral":
+                            tile = random.choice(neutral_tiles)
+                        elif chosen_category == "flower":
+                            tile = random.choice(flower_tiles)
+                        else:
+                            tile = random.choice(white_tiles)
+                        
+                        self.grass_tiles[row][col] = tile
+                        self.grass_background.blit(self.sprites[tile], (col * CELL_SIZE, row * CELL_SIZE))
 
             # Obastacles
             if self.difficulty > 1:
@@ -250,10 +256,11 @@ class SnakeEnv(gym.Env):
 
         else: # Just updating the new obstacles
             # Grass
-            for row in range(GRID_HEIGHT):
-                for col in range(GRID_WIDTH):                    
-                    tile = self.grass_tiles[row][col]
-                    self.grass_background.blit(self.sprites[tile], (col * CELL_SIZE, row * CELL_SIZE))
+            if self.using_grass:
+                for row in range(GRID_HEIGHT):
+                    for col in range(GRID_WIDTH):                    
+                        tile = self.grass_tiles[row][col]
+                        self.grass_background.blit(self.sprites[tile], (col * CELL_SIZE, row * CELL_SIZE))
 
             if self.difficulty > 1:
                 # New Obstacle Tile
