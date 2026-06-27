@@ -37,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--n_clusters", type=int, default=10) # Default same as episodes
     parser.add_argument("--samples_per_cluster", type=int, default=4)
-    parser.add_argument("--cluster_out", default="clusters.png", help="Path to save cluster plot")
+    parser.add_argument("--cluster_out", default="imgs/clusters.png", help="Path to save cluster plot")
 
     args = parser.parse_args()
 
