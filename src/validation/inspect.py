@@ -12,6 +12,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
+from sklearn.metrics import confusion_matrix
 
 from src.jepa.transformers import VisualTransformer, Predictor
 from src.jepa.e2e_jepa import *
@@ -137,11 +138,10 @@ if __name__ == '__main__':
         print(f"Action {action}: {count} times ({(count / args.n_samples) * 100:.2f}%)")
 
     # Experiment 2: Cluster embeddings from random states and visualize the clusters
+    env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=config.get("difficulty"))
+    
     all_embeddings = []
     all_frames = []
-
-    env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=config.get("difficulty"))
-
 
     for _ in range(4):  # Generate 25 random states
         # Generate two random ints for the apple position
@@ -150,7 +150,7 @@ if __name__ == '__main__':
 
         for _ in range(25):
             x_t = env._generate_random_frame((apple_x, apple_y))
-            all_frames.append(np.transpose(x_t, (2, 1, 0)))
+            all_frames.append(np.transpose(x_t, (1, 2, 0)))
             x_t_tensor = torch.from_numpy(x_t).unsqueeze(0).float().to(device)
             z_t = model.encoder(x_t_tensor)
             all_embeddings.append(z_t[:, 0, :].detach().cpu().numpy())
@@ -161,4 +161,35 @@ if __name__ == '__main__':
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
     labels = kmeans.fit_predict(embeddings)
 
-    plot_clusters(all_frames, 4, 4, labels, "cluster_visualization.png")
+    plot_clusters(all_frames, 4, 4, labels, "cluster_visualization_apples.png")
+
+    all_embeddings = []
+    all_frames = []
+    location_labels = []
+
+    for loc_idx in range(4):  # Generate 25 random states
+        # Generate two random ints for the apple position
+        snake_x = np.random.randint(0, GRID_WIDTH)
+        snake_y = np.random.randint(0, GRID_HEIGHT)
+
+        for _ in range(25):
+            x_t = env._generate_random_frame(snake_pos=(snake_x, snake_y), snake_dir=(0,1))
+            all_frames.append(np.transpose(x_t, (1, 2, 0)))
+            x_t_tensor = torch.from_numpy(x_t).unsqueeze(0).float().to(device)
+            z_t = model.encoder(x_t_tensor)
+            all_embeddings.append(z_t[:, 0, :].detach().cpu().numpy())
+            location_labels.append(loc_idx)
+
+    # Clustering embeddings
+    embeddings = np.vstack(all_embeddings)
+    n_clusters = min(4, len(embeddings))
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
+    labels = kmeans.fit_predict(embeddings)
+
+    plot_clusters(all_frames, 4, 4, labels, "cluster_visualization_snakes.png")
+
+    cm = confusion_matrix(location_labels, labels)
+    print("\nConfusion matrix (rows=snake location, cols=cluster):")
+    print(f"{'':>12}" + "".join(f"  C{c}" for c in range(n_clusters)))
+    for loc_idx, row in enumerate(cm):
+        print(f"  Location {loc_idx}  " + "".join(f"{v:4d}" for v in row))
