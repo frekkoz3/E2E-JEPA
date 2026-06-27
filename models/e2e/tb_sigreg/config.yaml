@@ -55,7 +55,7 @@ policy:
   epsilon_end: 0.05
   epsilon_coeff: 0.99975
 
-  pol_input_dim: 192
+  pol_input_dim: 96
   pol_output_dim: 4
   pol_num_attention_layer: 2
   pol_attention_layer_params: [ { "pol_num_heads": 16 }, { "pol_num_heads": 24 } ]
