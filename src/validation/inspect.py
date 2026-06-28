@@ -161,7 +161,7 @@ if __name__ == '__main__':
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
     labels = kmeans.fit_predict(embeddings)
 
-    plot_clusters(all_frames, 4, 4, labels, "cluster_visualization_apples.png")
+    plot_clusters(all_frames, 4, 4, labels, "imgs/cluster_visualization_apples.png")
 
     all_embeddings = []
     all_frames = []
@@ -186,7 +186,7 @@ if __name__ == '__main__':
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
     labels = kmeans.fit_predict(embeddings)
 
-    plot_clusters(all_frames, 4, 4, labels, "cluster_visualization_snakes.png")
+    plot_clusters(all_frames, 4, 4, labels, "imgs/cluster_visualization_snakes.png")
 
     cm = confusion_matrix(location_labels, labels)
     print("\nConfusion matrix (rows=snake location, cols=cluster):")

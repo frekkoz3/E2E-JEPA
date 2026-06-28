@@ -1,14 +1,14 @@
 environment:
   environment : "Snake"
   n_environments: 1
-  n_obstacles : 5
+  n_obstacles : 10
   max_step : 1000
   rescale_frames : True
 
   render_mode : "rgb_array"
   observation_type : "image"
 
-  difficulty : 2
+  difficulty : 0
   cell_size : 35
   grid_width : 20
   grid_height : 20
@@ -18,13 +18,14 @@ environment:
   n_actions : 4
   reward_food: 20
   reward_death: -5
-  reward_step: 0.05
+  reward_step: 0.01
 
   horizon: 1
-  history_size: 2
+  history_size: 1
+
 
 encoder:
-  embedding_dim : 96
+  embedding_dim : 48
   enc_mlp_dim : 256
   enc_n_heads : 4
   enc_depth : 8
@@ -33,18 +34,18 @@ encoder:
 
 
 predictor:
-  pred_hidden_dim : 96
+  pred_hidden_dim : 48
   pred_cond_dim : 4
   pred_mlp_dim : 256
   pred_n_heads : 8
-  pred_depth : 6
+  pred_depth : 4
   use_AdaLN : True
   dropout : 0.1
 
 
 policy:
   pol_type : "PolicyDQN"
-  pol_network : "AttentionDQN"
+  pol_network : "DQN"
   pol_horizon : 1
   pol_loss : "MSELoss"
   reward_discount : 0.95
@@ -54,9 +55,7 @@ policy:
   epsilon_end: 0.05
   epsilon_coeff: 0.999
 
-  pol_input_dim : 96
-  pol_num_attention_layer: 4
-  pol_attention_layer_params: [ { "pol_num_heads": 8 }, { "pol_num_heads": 8 }, { "pol_num_heads": 8 }, { "pol_num_heads": 8 }]
+  pol_input_dim : 48
   pol_output_dim : 4
   pol_num_hidden_layer : 5
   pol_dim_hidden_layer : [192, 384, 192, 96, 48]
@@ -65,15 +64,15 @@ policy:
 training:
   device : "cuda"
 
-  n_epochs : 1400
+  n_epochs : 800
   steps_per_epoch : 256
 
-  batch_size : 128
-  buffer_size : 2048
+  batch_size : 64
+  buffer_size : 1024
   refresh_buffer_freq : 8
 
-  optimizer : "AdamW"
-  lr_init : 0.0001
+  optimizer : "Adam"
+  lr_init : 0.001
   lr_scheduler : "ExponentialLR"
   lr_step_size : 10
   lr_gamma : 0.999
