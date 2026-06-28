@@ -4,7 +4,7 @@
 # SLURM RESOURCE ALLOCATION (SBATCH Directives)
 # ==============================================================================
 #SBATCH --job-name=E2E-UPD
-#SBATCH --output=log/dqn_att_%j.log
+#SBATCH --output=log/upd_%j.log
 #SBATCH --partition=GPU
 #SBATCH --nodes=1
 #SBATCH --ntasks=1

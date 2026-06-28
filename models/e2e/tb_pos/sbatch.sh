@@ -4,7 +4,7 @@
 # SLURM RESOURCE ALLOCATION (SBATCH Directives)
 # ==============================================================================
 #SBATCH --job-name=E2E-HR-YTB-SigReg
-#SBATCH --output=log/hr%j.log
+#SBATCH --output=log/pos_%j.log
 #SBATCH --partition=GPU
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
