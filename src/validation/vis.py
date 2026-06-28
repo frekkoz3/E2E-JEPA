@@ -129,6 +129,7 @@ if __name__ == '__main__':
     for episode in range(args.episodes):
 
         x_t, _ = env.reset()
+        env.render()
         x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
 
         done, trunc = False, False
