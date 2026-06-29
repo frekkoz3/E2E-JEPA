@@ -1,3 +1,10 @@
+encoder:
+  embedding_dim: 96
+  enc_depth: 12
+  enc_mlp_dim: 256
+  enc_n_heads: 3
+  enc_patch_in_channels: 3
+  enc_patch_size: 35
 environment:
   cell_size: 35
   difficulty: 2
@@ -19,38 +26,18 @@ environment:
   reward_food: 50
   reward_illegal_action: -1
   reward_step: 0.0
-
-encoder:
-  embedding_dim: 96
-  enc_depth: 12
-  enc_mlp_dim: 256
-  enc_n_heads: 3
-  enc_patch_in_channels: 3
-  enc_patch_size: 35
-
-predictor:
-  dropout: 0.1
-  pred_cond_dim: 4
-  pred_depth: 6
-  pred_hidden_dim: 96
-  pred_mlp_dim: 256
-  pred_n_heads: 16
-  use_AdaLN: true
-projector:
-  proj_hidden_dim: 64
-
 policy:
   epsilon_coeff: 0.99975
   epsilon_end: 0.05
   epsilon_start: 1.0
   epsilon_strategy: EpsilonGreedy
   pol_attention_layer_params:
-    - pol_num_heads: 16
-    - pol_num_heads: 24
+  - pol_num_heads: 16
+  - pol_num_heads: 24
   pol_dim_fc_layer:
-    - 16
-    - 64
-    - 32
+  - 16
+  - 64
+  - 32
   pol_horizon: 1
   pol_input_dim: 96
   pol_loss: MSELoss
@@ -61,7 +48,23 @@ policy:
   pol_type: PolicyDQN
   reward_discount: 0.95
   using_heuristic: true
-
+predictor:
+  dropout: 0.1
+  pred_cond_dim: 4
+  pred_depth: 6
+  pred_hidden_dim: 96
+  pred_mlp_dim: 256
+  pred_n_heads: 16
+  use_AdaLN: true
+projector:
+  proj_hidden_dim: 64
+save:
+  clean_checkpoints: false
+  epochs_per_checkpoint: 250
+  last_checkpoint: latest.pkl
+  load_checkpoints: true
+  save_model: true
+  starting_epoch: 0
 training:
   batch_size: 32
   buffer_size: 1024
@@ -74,11 +77,3 @@ training:
   optimizer: AdamW
   refresh_buffer_freq: 8
   steps_per_epoch: 256
-
-save:
-  clean_checkpoints: false
-  epochs_per_checkpoint: 250
-  last_checkpoint: latest.pkl
-  load_checkpoints: false
-  save_model: true
-  starting_epoch: 0
