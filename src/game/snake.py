@@ -261,6 +261,7 @@ class SnakeEnv(gym.Env):
                     self.grass_background.blit(self.sprites[tile], (x * CELL_SIZE, y * CELL_SIZE) )
 
         else: # Just updating the new obstacles
+            self.grass_background.fill("#3d8250")
             # Grass
             if self.using_grass:
                 for row in range(GRID_HEIGHT):
@@ -478,6 +479,50 @@ class SnakeEnv(gym.Env):
         if snake_dir:
             self.direction = snake_dir
         return self._render_frame()
+    
+    def _heuristic_action(self):
+        """
+        Greedy heuristic:
+        - Move toward the apple.
+        - Never reverse direction.
+        - Avoid actions that immediately collide.
+        """
+
+        head_x, head_y = self.snake[0]
+        food_x, food_y = self.food
+
+        directions = [
+            (0, -1),  # UP
+            (0, 1),   # DOWN
+            (-1, 0),  # LEFT
+            (1, 0),   # RIGHT
+        ]
+
+        current_action = directions.index(self.direction)
+
+        candidates = []
+
+        for action in self.get_possible_actions(current_action):
+            dx, dy = directions[action]
+            nx, ny = head_x + dx, head_y + dy
+
+            # Skip immediate collisions
+            if not (0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT):
+                continue
+            if (nx, ny) in self.snake:
+                continue
+            if (nx, ny) in self.obstacles:
+                continue
+
+            dist = abs(nx - food_x) + abs(ny - food_y)
+            candidates.append((dist, action))
+
+        if candidates:
+            candidates.sort()
+            return candidates[0][1]
+
+        # No safe move: just return any legal action
+        return random.choice(self.get_possible_actions(current_action))
 
 import argparse
 
@@ -532,7 +577,7 @@ if __name__ == "__main__":
 
     while not done and not trunc:
 
-        if env.window is not None:
+        """if env.window is not None:
             for event in pygame.event.get(pygame.KEYDOWN):
                 if event.key == pygame.K_w:
                     current_action = 0
@@ -542,7 +587,8 @@ if __name__ == "__main__":
                     current_action = 2
                 elif event.key == pygame.K_d:
                     current_action = 3
-
+        """
+        current_action = env._heuristic_action()
         obs, rew, done, trunc, info = env.step(current_action)
 
         if registration:

@@ -30,6 +30,7 @@ GPU = "cuda"
 CPU = "cpu"
 XPU = "xpu"
 
+
 if __name__ == '__main__':
     """
         Quick usage (from the root of the project)
@@ -93,7 +94,6 @@ if __name__ == '__main__':
     fps = config.get("fps", 10)
     difficulty = config.get("difficulty", 2)
     rescale_frames = config.get("rescale_frames", False)
-    using_heuristic = config.get("using_heuristic", False)
 
     # Encoder parameters
     embed_dim = config.get("embedding_dim", 64)
@@ -149,10 +149,9 @@ if __name__ == '__main__':
                      trainer.optimizer,
                      trainer.scheduler,
                      trainer.policy.optimizer,
-                     trainer.policy.scheduler,
-                     trainer.policy.epsilon_strategy)
+                     trainer.policy.scheduler)
     
-    env = SnakeEnv(**config)
+    env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=difficulty, rescale_frames = rescale_frames)
     x_t, _ = env.reset()
     x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
 
@@ -168,8 +167,8 @@ if __name__ == '__main__':
             for step in range(steps_per_epoch):
                 z_t = trainer.encoder(x_t)[:, 0, :]
                 
-                # Choose action actively using current model state
-                a_t, _ = trainer.get_action(z_t.detach().unsqueeze(1)) if using_heuristic else env._heuristic_action()
+                # Choose action actively using internal heuristic
+                a_t, _ = env._heuristic_action()
                 
                 # Step the real environment
                 x_tp1, r_t, done, _, info = env.step(a_t)
@@ -207,11 +206,6 @@ if __name__ == '__main__':
             metrics_collector.add_metric(metrics)
             if not load_checkpoints:
                 metrics_collector.save_metrics(f"{where_save}metrics.csv", append = (epoch > 0))
-                # write in config "load_checkpoints" = True
-                with open(config_path, 'rw') as f:
-                    config = yaml.safe_load(f)
-                    config["save"]["load_checkpoints"] = True
-                    yaml.safe_dump(config, f)
             else:
                 metrics_collector.save_metrics(f"{where_save}metrics.csv", append = True)
 
@@ -221,7 +215,7 @@ if __name__ == '__main__':
 
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:
-            save_results(f"{where_save}latest.pkl",
+            save_results(f"{where_save}{(starting_epoch+epoch)//epochs_per_checkpoint}.pkl",
                          trainer.predictor,
                          trainer.encoder,
                          trainer.policy.network,
@@ -229,8 +223,6 @@ if __name__ == '__main__':
                          trainer.scheduler,
                          trainer.policy.optimizer,
                          trainer.policy.scheduler)
-
-
             if clean_checkpoints:
                 old = Path(f"{where_save}{(starting_epoch+epoch)//epochs_per_checkpoint - 1}.pkl")
                 if old.exists():

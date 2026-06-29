@@ -748,7 +748,6 @@ class PolicyDQN(Policy):
             actions_idx = actions.argmax(dim=-1, keepdim=True)
 
         # Force shape to [Batch, 1]
-        print(f"Q-Values : {q_values.shape}, A: {actions_idx.shape}")
         online_q_values = q_values.gather(1, actions_idx)       # [B, 1]
 
         # Compute Target Q-Values for the next state using the target network
