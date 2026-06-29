@@ -169,7 +169,7 @@ class TransformerEncoderBlock(nn.Module):
 
             x = x + gate_msa * attn_out
             x = x + gate_mlp * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
-        
+
         else:
             if return_attention:
                 attn_out, attn = self.attn(
@@ -183,10 +183,10 @@ class TransformerEncoderBlock(nn.Module):
             x = x + attn_out
             x = x + self.mlp(self.norm2(x))
 
-            if return_attention:
-                return x, attn
+        if return_attention:
+            return x, attn
 
-            return x
+        return x
 
 
 class Transformer(nn.Module):
@@ -278,27 +278,9 @@ class VisualTransformer(nn.Module):
 
 class Predictor(nn.Module):
     """Autoregressive predictor for sequential JEPA training.
-
     Given a history of N frame embeddings and N actions, predicts the next N
     frame embeddings using temporal causal masking:
-
         output[:, t]  ≈  z_{t+1},  conditioned on  z_{0..t}  and  a_{0..t}.
-
-    A single forward pass thus produces N supervised prediction targets,
-    compared to 1 in the original single-step design.
-
-    Direct equivalent of module.py::ARPredictor:
-        self.pos_embedding  ←→  ARPredictor.pos_embedding
-        self.action_proj    ←→  Embedder (action conditioning)
-        self.transformer    ←→  Transformer(block_class=ConditionalBlock)
-        causal=True         ←→  Attention(is_causal=True)
-
-    REF: module.py::ARPredictor
-    REF: module.py::Embedder
-    REF: train.py::lejepa_forward — pred_emb = model.predict(ctx_emb, ctx_act)
-    Paper: "The predictor takes as input a history of N frame representations
-            and predicts the next frame representation auto-regressively with
-            temporal causal masking to avoid looking at future embeddings."
     """
 
     def __init__(
@@ -316,21 +298,14 @@ class Predictor(nn.Module):
         super().__init__()
 
         # ── Temporal positional embedding ──────────────────────────────────
-        # REF: module.py::ARPredictor.pos_embedding — nn.Parameter shape (1, T, D)
         self.pos_embedding = nn.Parameter(torch.zeros(1, max_seq_len, embed_dim))
         nn.init.trunc_normal_(self.pos_embedding, std=0.02)
         self.dropout = nn.Dropout(dropout)
 
         # ── Action projection ──────────────────────────────────────────────
-        # Maps (B, T, action_dim) → (B, T, hidden_dim) so conditioning has
-        # the same dimension as the hidden state (fed as `c` to AdaLN blocks).
-        # REF: module.py::Embedder — Conv1d + MLP action embedding.
         self.action_proj = nn.Linear(action_dim, hidden_dim)
 
-
         # ── Causal transformer core ────────────────────────────────────────
-        # cond_dim=hidden_dim because action_proj already maps to hidden_dim.
-        # REF: module.py::ARPredictor — uses ConditionalBlock (AdaLN-zero).
         self.transformer = Transformer(
             input_dim=embed_dim,
             hidden_dim=hidden_dim,
@@ -350,9 +325,6 @@ class Predictor(nn.Module):
 
         Returns (B, T, embed_dim) where output[:, t] predicts z_{t+1},
         using only x[:, 0..t] and a[:, 0..t] (causal masking enforced).
-
-        REF: module.py::ARPredictor.forward — identical (x, c) interface.
-        REF: train.py::lejepa_forward — pred_emb = model.predict(ctx_emb, ctx_act)
         """
         T = x.size(1)
         x = x + self.pos_embedding[:, :T]   # add temporal positional encoding
