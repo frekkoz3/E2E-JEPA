@@ -1,0 +1,80 @@
+encoder:
+  embedding_dim: 96
+  enc_depth: 12
+  enc_mlp_dim: 256
+  enc_n_heads: 3
+  enc_patch_in_channels: 3
+  enc_patch_size: 35
+environment:
+  cell_size: 35
+  difficulty: 2
+  environment: Snake
+  fps: 10
+  grid_height: 20
+  grid_width: 20
+  history_size: 3
+  horizon: 2
+  max_step: 1000
+  n_actions: 4
+  n_environments: 1
+  n_obstacles: 10
+  observation_type: image
+  render_mode: rgb_array
+  rescale_frames: true
+  resources_path: ./src/game/resources
+  reward_death: -5
+  reward_food: 50
+  reward_illegal_action: -1
+  reward_step: 0.0
+load: null
+policy:
+  epsilon_coeff: 0.99975
+  epsilon_end: 0.05
+  epsilon_start: 1.0
+  epsilon_strategy: EpsilonGreedy
+  pol_attention_layer_params:
+  - pol_num_heads: 16
+  - pol_num_heads: 24
+  pol_dim_fc_layer:
+  - 16
+  - 64
+  - 32
+  pol_horizon: 1
+  pol_input_dim: 96
+  pol_loss: MSELoss
+  pol_network: AttentionDQN
+  pol_num_attention_layer: 2
+  pol_num_fc_layer: 3
+  pol_output_dim: 4
+  pol_type: PolicyDQN
+  reward_discount: 0.95
+  using_heuristic: true
+predictor:
+  dropout: 0.1
+  pred_cond_dim: 4
+  pred_depth: 6
+  pred_hidden_dim: 96
+  pred_mlp_dim: 256
+  pred_n_heads: 16
+  use_AdaLN: true
+projector:
+  proj_hidden_dim: 64
+save:
+  clean_checkpoints: false
+  epochs_per_checkpoint: 250
+  last_checkpoint: latest.pkl
+  load_checkpoints: true
+  save_model: true
+  starting_epoch: 0
+training:
+  batch_size: 32
+  buffer_size: 1024
+  device: cuda
+  lr_gamma: 0.999
+  lr_init: 0.0001
+  lr_scheduler: ExponentialLR
+  lr_step_size: 10
+  n_epochs: 1000
+  optimizer: AdamW
+  refresh_buffer_freq: 8
+  steps_per_epoch: 256
