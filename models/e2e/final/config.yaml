@@ -66,7 +66,7 @@ policy:
 training:
   device : "cuda"
 
-  n_epochs : 10000
+  n_epochs : 1000
   steps_per_epoch : 256
 
   batch_size : 32
@@ -84,9 +84,9 @@ save:
   starting_epoch : 0
   epochs_per_checkpoint: 250
   save_model: True
-  clean_checkpoints : True
+  clean_checkpoints : False
   load_checkpoints : False
-  last_checkpoint : "22.pkl"
+  last_checkpoint : "latest.pkl"
   #save_path: "./models/e2e/"
 
 load:

@@ -149,7 +149,8 @@ if __name__ == '__main__':
                      trainer.optimizer,
                      trainer.scheduler,
                      trainer.policy.optimizer,
-                     trainer.policy.scheduler)
+                     trainer.policy.scheduler,
+                     trainer.policy.epsilon_strategy)
     
     env = SnakeEnv(**config)
     x_t, _ = env.reset()
@@ -206,6 +207,11 @@ if __name__ == '__main__':
             metrics_collector.add_metric(metrics)
             if not load_checkpoints:
                 metrics_collector.save_metrics(f"{where_save}metrics.csv", append = (epoch > 0))
+                # write in config "load_checkpoints" = True
+                with open(config_path, 'rw') as f:
+                    config = yaml.safe_load(f)
+                    config["save"]["load_checkpoints"] = True
+                    yaml.safe_dump(config, f)
             else:
                 metrics_collector.save_metrics(f"{where_save}metrics.csv", append = True)
 
@@ -215,7 +221,7 @@ if __name__ == '__main__':
 
         # Dynamically saving checkpoints and removing them
         if epoch%epochs_per_checkpoint == 0:
-            save_results(f"{where_save}{(starting_epoch+epoch)//epochs_per_checkpoint}.pkl",
+            save_results(f"{where_save}latest.pkl",
                          trainer.predictor,
                          trainer.encoder,
                          trainer.policy.network,
@@ -223,6 +229,8 @@ if __name__ == '__main__':
                          trainer.scheduler,
                          trainer.policy.optimizer,
                          trainer.policy.scheduler)
+
+
             if clean_checkpoints:
                 old = Path(f"{where_save}{(starting_epoch+epoch)//epochs_per_checkpoint - 1}.pkl")
                 if old.exists():

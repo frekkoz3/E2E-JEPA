@@ -29,15 +29,18 @@ def save_results(where: str,
                  optimizer: torch.optim.Optimizer,
                  scheduler : torch.optim.lr_scheduler._LRScheduler,
                  policy_optimizer : torch.optim.Optimizer,
-                 policy_scheduler : torch.optim.lr_scheduler._LRScheduler):
+                 policy_scheduler : torch.optim.lr_scheduler._LRScheduler,
+                 epsilon_start : float | int,
+                 ):
     torch.save({
         "predictor": predictor.state_dict(), 
         "encoder": encoder.state_dict(), 
         "policy_net": policy_net.state_dict(),
         "optimizer": optimizer.state_dict(),
         "scheduler": scheduler.state_dict(),
-        "pol_optimizer": policy_optimizer.state_dict() if policy_optimizer is not None else None,
-        "pol_scheduler": policy_scheduler.state_dict() if policy_scheduler is not None else None
+        "pol_optimizer": policy_optimizer.state_dict(),
+        "pol_scheduler": policy_scheduler.state_dict(),
+        "epsilon_start": epsilon_start,
     }, where)
 
 def load_results(where: str,
@@ -47,7 +50,9 @@ def load_results(where: str,
                  optimizer : torch.optim.Optimizer,
                  scheduler : torch.optim.lr_scheduler._LRScheduler,
                  policy_optimizer : torch.optim.Optimizer,
-                 policy_scheduler : torch.optim.lr_scheduler._LRScheduler):
+                 policy_scheduler : torch.optim.lr_scheduler._LRScheduler,
+                 policy_eps : Policy.epsilon_strategy,
+                ):
     ldr = torch.load(where, weights_only=False, map_location="cpu")
     predictor.load_state_dict(ldr["predictor"])
     encoder.load_state_dict(ldr["encoder"])
@@ -56,6 +61,7 @@ def load_results(where: str,
     scheduler.load_state_dict(ldr["scheduler"])
     policy_optimizer.load_state_dict(ldr["pol_optimizer"])
     policy_scheduler.load_state_dict(ldr["pol_scheduler"])
+    policy_eps.eps = ldr["epsilon_start"]
 
 
 # Experience Replay Buffer for Online Trajectories

@@ -57,7 +57,7 @@ export PYTHONPATH="$(pwd):$PYTHONPATH"
 # ==============================================================================
 
 # Construct the config file path automatically
-CONFIG_FILE="./models/e2e/tb_upd/config.yaml"
+CONFIG_FILE="./models/e2e/final/config.yaml"
 
 # Safety check
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -68,6 +68,6 @@ fi
 echo "Training model using configuration: ${CONFIG_FILE}"
 
 # Run the training script matching the argparse configuration in policy.py
-python -m src.train.train --config "${CONFIG_FILE}" --run-name tb_upd
+python -m src.train.train --config "${CONFIG_FILE}" --run-name final
 
 echo "Job completed successfully."
