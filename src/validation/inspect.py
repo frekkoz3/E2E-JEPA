@@ -71,6 +71,9 @@ if __name__ == '__main__':
     enc_patch_size = config.get("enc_patch_size", 6)
     enc_patch_in_channels = config.get("enc_path_in_channels", 3)
 
+    #Projector
+    proj_hidden_dim = config.get("proj_hidden_dim")
+
     # Predictor parameters
     pred_hidden_dim = config.get("pred_hidden_dim", 64)
     pred_cond_dim = config.get("pred_cond_dim", 1)
@@ -97,6 +100,7 @@ if __name__ == '__main__':
                             mlp_dim=pred_mlp_dim,
                             use_adaLN=use_adaLN,
                             dropout=dropout).to(device=device),
+        projector=Projector(embed_dim=embed_dim, hidden_dim=proj_hidden_dim),
         policy=eval(config["pol_type"])(**config),
         action_dim=action_dim,
         embed_dim=embed_dim,

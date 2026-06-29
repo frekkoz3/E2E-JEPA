@@ -181,4 +181,7 @@ if __name__ == '__main__':
         axes[r, c].axis("off")
 
     plt.tight_layout()
+
+    plt.savefig("imgs/multihead_attention_heatmaps.png", dpi=150)
+
     plt.show()

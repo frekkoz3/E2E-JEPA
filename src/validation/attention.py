@@ -159,4 +159,6 @@ if __name__ == '__main__':
     ax[1].set_title("CLS Attention")
     ax[1].axis("off")
 
+    plt.savefig("imgs/attention_heatmap.png", dpi=150)
+
     plt.show()
