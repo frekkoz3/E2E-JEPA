@@ -163,7 +163,7 @@ class PropToOtherLossChangeRegularizer(Regularizer):
     Magnitude change is clamped to [1e-6, 100] to avoid extreme values.
     """
 
-    def __init__(self, eps : float | int = 1e-8, max_weight : float | int = 5.):
+    def __init__(self, eps : float | int = 1e-2, max_weight : float | int = 1.):
         self.eps = eps
         self.max_weight = max_weight
         self.old_loss_target = None
