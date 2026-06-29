@@ -115,7 +115,8 @@ if __name__ == '__main__':
                  model.optimizer,
                  model.scheduler,
                  model.policy.optimizer,
-                 model.policy.scheduler)
+                 model.policy.scheduler,
+                 model.policy.epsilon_strategy)
 
     # Experiment 1: Visualize the distribution of selected actions
     selected_actions = []
