@@ -5,6 +5,9 @@ log/
 # LFS Cluster problem
 models/e2e/dem/loc_final.pkl
 
+# Local-dbg
+models/e2e/local-dbg
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
