@@ -142,7 +142,7 @@ if __name__ == '__main__':
     )
     if load_checkpoints:
         checkpoint_name = config.get("last_checkpoint")
-        load_results(f"{default_save_location}/{checkpoint_name}",
+        load_results(f"{default_save_location}{checkpoint_name}",
                      trainer.predictor,
                      trainer.encoder,
                      trainer.policy.network,
