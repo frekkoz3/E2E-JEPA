@@ -247,4 +247,4 @@ if __name__ == '__main__':
             old_floor.unlink()
 
     save_results(f"{where_save}final.pkl",  trainer.predictor, trainer.encoder, trainer.policy.network, trainer.optimizer,
-                 trainer.scheduler, trainer.policy.optimizer, trainer.policy.scheduler)
+                 trainer.scheduler, trainer.policy.optimizer, trainer.policy.scheduler, trainer.policy.epsilon_strategy.eps)
