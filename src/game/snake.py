@@ -522,7 +522,7 @@ class SnakeEnv(gym.Env):
             return candidates[0][1]
 
         # No safe move: just return any legal action
-        return random.choice(self.get_possible_actions(current_action)), ()
+        return random.choice(self.get_possible_actions(current_action)), None
 
 import argparse
 
