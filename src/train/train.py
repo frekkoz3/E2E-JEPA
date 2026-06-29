@@ -151,7 +151,7 @@ if __name__ == '__main__':
                      trainer.policy.optimizer,
                      trainer.policy.scheduler)
     
-    env = SnakeEnv(render_mode="rgb_array", observation_type="image", difficulty=difficulty, rescale_frames = rescale_frames)
+    env = SnakeEnv(**config)
     x_t, _ = env.reset()
     x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
 
