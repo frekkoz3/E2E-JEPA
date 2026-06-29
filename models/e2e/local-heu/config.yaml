@@ -63,7 +63,7 @@ save:
   clean_checkpoints: true
   epochs_per_checkpoint: 20
   last_checkpoint: latest.pkl
-  load_checkpoints: false
+  load_checkpoints: true
   save_model: true
   starting_epoch: 0
 training:
