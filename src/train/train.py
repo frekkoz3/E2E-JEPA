@@ -173,10 +173,6 @@ if __name__ == '__main__':
                 # Step the real environment
                 x_tp1, r_t, done, _, info = env.step(a_t)
 
-                # Check if the action is actually legit
-                if info:
-                    a_t = info["act"]
-
                 a_t = F.one_hot(torch.tensor(a_t), action_dim).float() # one hot encoding of the action instead of one-dimensional one
 
                 x_tp1 = torch.tensor(np.expand_dims(x_tp1, 0)).float().to(device=device)
