@@ -207,9 +207,10 @@ if __name__ == '__main__':
             metrics_collector.add_metric(metrics)
             if not load_checkpoints:
                 metrics_collector.save_metrics(f"{where_save}metrics.csv", append = (epoch > 0))
-                with open(config_path, 'rw') as f:
+                with open(config_path, 'r') as f:
                     config = yaml.safe_load(f)
-                    config["save"]["load_checkpoints"] = True
+                config["save"]["load_checkpoints"] = True
+                with open(config_path, 'w') as f:
                     yaml.safe_dump(config, f)
             else:
                 metrics_collector.save_metrics(f"{where_save}metrics.csv", append = True)
