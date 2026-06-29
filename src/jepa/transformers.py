@@ -14,23 +14,46 @@ def modulate(x, shift, scale):
     return x * (1 + scale) + shift
 
 class MultiHeadAttention(nn.Module):
-    """Multi-head self-attention module"""
 
-    def __init__(self,
-                 dim : int,
-                 num_heads :  int,
-                 dropout : float | int):
+    def __init__(self, dim, num_heads, dropout):
         super().__init__()
-        self.attn = nn.MultiheadAttention(dim, num_heads=num_heads, dropout=dropout, batch_first=True)
+        self.attn = nn.MultiheadAttention(
+            dim,
+            num_heads=num_heads,
+            dropout=dropout,
+            batch_first=True,
+        )
 
-    def forward(self, x, causal : bool = False):
+    def forward(self, x, causal=False, return_attention=False):
+
+        kwargs = dict(
+            need_weights=return_attention,
+            average_attn_weights=False,   # keep individual heads
+        )
+
         if causal:
-            # Apply a lower-traingular causal mask
             T = x.size(1)
-            attention_mask = nn.Transformer.generate_square_subsequent_mask(T, device = x.device, dtype=x.dtype)
-            return self.attn(x, x, x, attn_mask=attention_mask, is_causal=True)[0]
-        return self.attn(x, x, x)[0]
+            mask = nn.Transformer.generate_square_subsequent_mask(
+                T,
+                device=x.device,
+                dtype=x.dtype,
+            )
 
+            out = self.attn(
+                x, x, x,
+                attn_mask=mask,
+                is_causal=True,
+                **kwargs
+            )
+
+        else:
+            out = self.attn(x, x, x, **kwargs)
+
+        if return_attention:
+            x, attn = out
+            return x, attn
+
+        return out[0]
 
 class PatchEmbedding(nn.Module):
     """Image to Patch Embedding"""
@@ -130,19 +153,43 @@ class TransformerEncoderBlock(nn.Module):
             nn.init.constant_(self.adaLN_modulation[-1].weight, 0)
             nn.init.constant_(self.adaLN_modulation[-1].bias, 0)
 
-    def forward(self, x, c = None, causal : bool = False):
+    def forward(self, x, c=None, causal=False, return_attention=False):
+
         if self.do_adaLN_modulation:
             shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
                 self.adaLN_modulation(c).chunk(6, dim=-1)
             )
 
-            x = x + gate_msa * self.attn(modulate(self.norm1(x), shift_msa, scale_msa), causal = causal)
+            if return_attention:
+                attn_out, attn = self.attn(
+                    modulate(self.norm1(x), shift_msa, scale_msa),
+                    causal=causal,
+                    return_attention=True,
+                )
+            
+            else:
+                attn_out = self.attn(modulate(self.norm1(x), shift_msa, scale_msa),
+                    causal=causal)
+
+            x = x + gate_msa * attn_out
             x = x + gate_mlp * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
-        
+
         else:
-            x = x + self.attn(self.norm1(x), causal = causal)
+            if return_attention:
+                attn_out, attn = self.attn(
+                    self.norm1(x),
+                    causal=causal,
+                    return_attention=True,
+                )
+            else:
+                attn_out = self.attn(self.norm1(x), causal=causal)
+
+            x = x + attn_out
             x = x + self.mlp(self.norm2(x))
-        
+
+        if return_attention:
+            return x, attn
+
         return x
 
 
@@ -173,7 +220,7 @@ class Transformer(nn.Module):
             TransformerEncoderBlock(hidden_dim, num_heads, mlp_dim, dropout, use_adaLN)
             for _ in range(depth)])
 
-    def forward(self, x, c=None, causal = False):
+    def forward(self, x, c=None, causal = False, return_attention = False):
 
         x = self.input_proj(x)
 
@@ -183,11 +230,28 @@ class Transformer(nn.Module):
             c = self.cond_proj(c)
             # c = c[:, None, :]
 
+        all_attentions = []
+
         for block in self.layers:
-            x = block(x, c, causal = causal)
+
+            if return_attention:
+                x, attn = block(
+                    x,
+                    c,
+                    causal=causal,
+                    return_attention=True,
+                )
+                all_attentions.append(attn)
+
+            else:
+                x = block(x, c, causal=causal)
 
         x = self.norm(x)
         x = self.output_proj(x)
+
+        if return_attention:
+            return x, all_attentions
+
         return x
     
 class VisualTransformer(nn.Module):
@@ -201,38 +265,26 @@ class VisualTransformer(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, embed_dim))
 
 
-    def forward(self, obs: torch.Tensor) -> torch.Tensor:
+    def forward(self, obs: torch.Tensor, return_attention=False) -> torch.Tensor:
         x = self.patch_embed(obs)
         cls_tokens = self.cls_token.expand(obs.size(0), -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
         x = self.pos_embed(x)
-        x = self.transformer(x)
-        return x
+        if return_attention:
+            x, attentions = self.transformer(
+                x,
+                return_attention=True,
+            )
+            return x, attentions
+
+        return self.transformer(x)
 
 
 class Predictor(nn.Module):
     """Autoregressive predictor for sequential JEPA training.
-
     Given a history of N frame embeddings and N actions, predicts the next N
     frame embeddings using temporal causal masking:
-
         output[:, t]  ≈  z_{t+1},  conditioned on  z_{0..t}  and  a_{0..t}.
-
-    A single forward pass thus produces N supervised prediction targets,
-    compared to 1 in the original single-step design.
-
-    Direct equivalent of module.py::ARPredictor:
-        self.pos_embedding  ←→  ARPredictor.pos_embedding
-        self.action_proj    ←→  Embedder (action conditioning)
-        self.transformer    ←→  Transformer(block_class=ConditionalBlock)
-        causal=True         ←→  Attention(is_causal=True)
-
-    REF: module.py::ARPredictor
-    REF: module.py::Embedder
-    REF: train.py::lejepa_forward — pred_emb = model.predict(ctx_emb, ctx_act)
-    Paper: "The predictor takes as input a history of N frame representations
-            and predicts the next frame representation auto-regressively with
-            temporal causal masking to avoid looking at future embeddings."
     """
 
     def __init__(
@@ -250,21 +302,14 @@ class Predictor(nn.Module):
         super().__init__()
 
         # ── Temporal positional embedding ──────────────────────────────────
-        # REF: module.py::ARPredictor.pos_embedding — nn.Parameter shape (1, T, D)
         self.pos_embedding = nn.Parameter(torch.zeros(1, max_seq_len, embed_dim))
         nn.init.trunc_normal_(self.pos_embedding, std=0.02)
         self.dropout = nn.Dropout(dropout)
 
         # ── Action projection ──────────────────────────────────────────────
-        # Maps (B, T, action_dim) → (B, T, hidden_dim) so conditioning has
-        # the same dimension as the hidden state (fed as `c` to AdaLN blocks).
-        # REF: module.py::Embedder — Conv1d + MLP action embedding.
         self.action_proj = nn.Linear(action_dim, hidden_dim)
 
-
         # ── Causal transformer core ────────────────────────────────────────
-        # cond_dim=hidden_dim because action_proj already maps to hidden_dim.
-        # REF: module.py::ARPredictor — uses ConditionalBlock (AdaLN-zero).
         self.transformer = Transformer(
             input_dim=embed_dim,
             hidden_dim=hidden_dim,
@@ -284,9 +329,6 @@ class Predictor(nn.Module):
 
         Returns (B, T, embed_dim) where output[:, t] predicts z_{t+1},
         using only x[:, 0..t] and a[:, 0..t] (causal masking enforced).
-
-        REF: module.py::ARPredictor.forward — identical (x, c) interface.
-        REF: train.py::lejepa_forward — pred_emb = model.predict(ctx_emb, ctx_act)
         """
         T = x.size(1)
         x = x + self.pos_embedding[:, :T]   # add temporal positional encoding
