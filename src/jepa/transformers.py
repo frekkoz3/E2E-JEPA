@@ -257,11 +257,17 @@ class Transformer(nn.Module):
 class VisualTransformer(nn.Module):
     """Visual encoder with patch embedding and transformer backbone."""
 
-    def __init__(self, img_size, embed_dim, mlp_dim, patch_size=16, num_heads=8, depth=6, no_last_layer_norm=True):
+    def __init__(self, img_size, embed_dim, mlp_dim, patch_size=16, num_heads=8, depth=6, no_last_layer_norm=False):
         super().__init__()
         self.patch_embed = PatchEmbedding(in_channels=3, embed_dim=embed_dim, patch_size=patch_size)
         self.pos_embed = PositionalEncoding2D(embed_dim=embed_dim, height=img_size[0]//patch_size, width=img_size[1]//patch_size)
-        self.transformer = Transformer(input_dim=embed_dim, hidden_dim=embed_dim, output_dim=embed_dim, depth=depth, num_heads=num_heads, mlp_dim=mlp_dim, no_last_layer_norm=no_last_layer_norm)
+        self.transformer = Transformer(input_dim=embed_dim,
+                                       hidden_dim=embed_dim,
+                                       output_dim=embed_dim,
+                                       depth=depth,
+                                       num_heads=num_heads,
+                                       mlp_dim=mlp_dim,
+                                       no_last_layer_norm=no_last_layer_norm)
         self.cls_token = nn.Parameter(torch.randn(1, 1, embed_dim))
 
 
@@ -278,6 +284,22 @@ class VisualTransformer(nn.Module):
             return x, attentions
 
         return self.transformer(x)
+
+
+class Projector(nn.Module):
+    """MLP projector for embeddings."""
+
+    def __init__(self, embed_dim, hidden_dim = 48):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(embed_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, embed_dim),
+        )
+
+    def forward(self, x):
+        return self.net(x)
 
 
 class Predictor(nn.Module):

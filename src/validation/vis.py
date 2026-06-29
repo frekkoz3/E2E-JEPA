@@ -38,6 +38,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_clusters", type=int, default=10) # Default same as episodes
     parser.add_argument("--samples_per_cluster", type=int, default=4)
     parser.add_argument("--cluster_out", default="imgs/clusters.png", help="Path to save cluster plot")
+    parser.add_argument("--cluster-plot", type=bool, default=False, help="Whether to show cluster plot")
 
     args = parser.parse_args()
 
@@ -57,6 +58,7 @@ if __name__ == '__main__':
     img_size = (width, total_height, 3)
     n_obstacles = config.get("n_obstacles", 10)
     fps = config.get("fps", 10)
+    rescale_frames = config.get("rescale_frames", False)
 
     # Optimizer
     optimizer = config.get("optimizer", "Adam")
@@ -121,7 +123,7 @@ if __name__ == '__main__':
                  model.policy.epsilon_strategy
                  )
 
-    env = SnakeEnv(render_mode="human", observation_type="image", difficulty=config.get("difficulty"))
+    env = SnakeEnv(render_mode="human", observation_type="image", difficulty=config.get("difficulty"), rescale_frames=rescale_frames)
 
     selected_actions = []
     all_embeddings = []
@@ -148,8 +150,8 @@ if __name__ == '__main__':
                 all_frames.append(x_t.squeeze(0).permute(2, 1, 0).cpu().numpy().astype(np.uint8))
 
                 # Choose the action with the greedy policy
-                a_t, _ = model.get_action(z_t.detach().unsqueeze(0), greedy=True)
-
+                a_t, info = model.get_action(z_t.detach().unsqueeze(0), greedy=True)
+                print(f"Selected actions: {a_t} \t\t Info: {info}")
                 selected_actions.append(a_t)
                 
                 # Step the real environment
@@ -168,14 +170,15 @@ if __name__ == '__main__':
     # Compute statistics on selected actions
     action_counts = np.bincount(selected_actions, minlength=action_dim)
 
-    # Clustering embeddings
-    embeddings = np.vstack(all_embeddings)
-    n_clusters = min(args.n_clusters, len(embeddings))
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
-    labels = kmeans.fit_predict(embeddings)
+    if args.cluster_plot:
+        # Clustering embeddings
+        embeddings = np.vstack(all_embeddings)
+        n_clusters = min(args.n_clusters, len(embeddings))
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
+        labels = kmeans.fit_predict(embeddings)
 
 
-    plot_clusters(all_frames, n_clusters, args.samples_per_cluster, labels, args.cluster_out)
+        plot_clusters(all_frames, n_clusters, args.samples_per_cluster, labels, args.cluster_out)
 
     print("Action distribution:")
     for action, count in enumerate(action_counts):

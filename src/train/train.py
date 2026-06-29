@@ -17,7 +17,7 @@ from pathlib import Path
 from torch.optim import lr_scheduler, Adam, AdamW
 from torch.optim.lr_scheduler import ExponentialLR
 
-from src.jepa.transformers import VisualTransformer, Predictor
+from src.jepa.transformers import VisualTransformer, Predictor, Projector
 from src.game.snake import SnakeEnv, TOTAL_HEIGHT, GRID_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT
 from src.policy.policy import Policy, PolicyDQN, PolicyPPO
 from src.jepa.e2e_jepa import *
@@ -103,6 +103,9 @@ if __name__ == '__main__':
     enc_patch_size = config.get("enc_patch_size", 6)
     enc_patch_in_channels = config.get("enc_path_in_channels", 3)
 
+    # Projector parameters
+    proj_hidden_dim = config.get("proj_hidden_dim", 64)
+
     # Predictor parameters
     pred_hidden_dim = config.get("pred_hidden_dim", 64)
     pred_cond_dim = config.get("pred_cond_dim", 1)
@@ -130,6 +133,7 @@ if __name__ == '__main__':
                             mlp_dim=pred_mlp_dim,
                             use_adaLN=use_adaLN,
                             dropout=dropout).to(device=device),
+        projector=Projector(embed_dim=embed_dim, hidden_dim=proj_hidden_dim).to(device=device),
         policy=eval(config["pol_type"])(**config),
         action_dim=action_dim,
         embed_dim=embed_dim,
@@ -145,6 +149,7 @@ if __name__ == '__main__':
         load_results(f"{default_save_location}{checkpoint_name}",
                      trainer.predictor,
                      trainer.encoder,
+                     trainer.projector,
                      trainer.policy.network,
                      trainer.optimizer,
                      trainer.scheduler,
@@ -224,6 +229,7 @@ if __name__ == '__main__':
             save_results(f"{where_save}latest.pkl",
                          trainer.predictor,
                          trainer.encoder,
+                         trainer.projector,
                          trainer.policy.network,
                          trainer.optimizer,
                          trainer.scheduler,
@@ -246,5 +252,13 @@ if __name__ == '__main__':
         if old_floor.exists():
             old_floor.unlink()
 
-    save_results(f"{where_save}final.pkl",  trainer.predictor, trainer.encoder, trainer.policy.network, trainer.optimizer,
-                 trainer.scheduler, trainer.policy.optimizer, trainer.policy.scheduler, trainer.policy.epsilon_strategy.eps)
+    save_results(f"{where_save}final.pkl",
+                 trainer.predictor,
+                 trainer.encoder,
+                 trainer.projector,
+                 trainer.policy.network,
+                 trainer.optimizer,
+                 trainer.scheduler,
+                 trainer.policy.optimizer,
+                 trainer.policy.scheduler,
+                 trainer.policy.epsilon_strategy.eps)

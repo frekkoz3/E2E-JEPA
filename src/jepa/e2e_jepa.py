@@ -25,6 +25,7 @@ from src.policy.policy import Policy
 def save_results(where: str,
                  predictor: nn.Module,
                  encoder: nn.Module,
+                 projector : nn.Module,
                  policy_net: nn.Module,
                  optimizer: torch.optim.Optimizer,
                  scheduler : torch.optim.lr_scheduler._LRScheduler,
@@ -34,7 +35,8 @@ def save_results(where: str,
                  ):
     torch.save({
         "predictor": predictor.state_dict(), 
-        "encoder": encoder.state_dict(), 
+        "encoder": encoder.state_dict(),
+        "projector": projector.state_dict(),
         "policy_net": policy_net.state_dict(),
         "optimizer": optimizer.state_dict(),
         "scheduler": scheduler.state_dict(),
@@ -46,6 +48,7 @@ def save_results(where: str,
 def load_results(where: str,
                  predictor: nn.Module,
                  encoder: nn.Module,
+                 projector : nn.Module,
                  policy_net: nn.Module,
                  optimizer : torch.optim.Optimizer,
                  scheduler : torch.optim.lr_scheduler._LRScheduler,
@@ -56,6 +59,7 @@ def load_results(where: str,
     ldr = torch.load(where, weights_only=False, map_location="cpu")
     predictor.load_state_dict(ldr["predictor"])
     encoder.load_state_dict(ldr["encoder"])
+    projector.load_state_dict(ldr["projector"])
     policy_net.load_state_dict(ldr["policy_net"])
     optimizer.load_state_dict(ldr["optimizer"])
     scheduler.load_state_dict(ldr["scheduler"])
@@ -187,6 +191,7 @@ class E2EJEPA:
             env : SnakeEnv,
             encoder: nn.Module,
             predictor: nn.Module,
+            projector: nn.Module,
             policy: Policy,
             action_dim: int,
             embed_dim: int,
@@ -207,6 +212,8 @@ class E2EJEPA:
 
         self.encoder = encoder
         self.predictor = predictor
+        self.projector = projector
+
         self.sigreg = SIGReg(device=device)
         self.policy = policy
 
@@ -267,7 +274,11 @@ class E2EJEPA:
 
         # 3. Extract CLS token (assuming index 0) and reshape back to (B, T, Embed_Dim)
         z_flat = output[:, 0, :]
-        z_seq = z_flat.view(B, T, -1)
+
+        # 4. Project embeddings
+        z_proj = self.projector(z_flat)
+
+        z_seq = z_proj.view(B, T, -1)
 
         return z_seq
 
