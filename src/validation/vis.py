@@ -15,7 +15,7 @@ from sklearn.cluster import KMeans
 
 from src.jepa.transformers import VisualTransformer, Predictor, Projector
 from src.jepa.e2e_jepa import *
-from src.game.snake import SnakeEnv, TOTAL_HEIGHT, GRID_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT
+from src.game.snake import SnakeEnv, TOTAL_HEIGHT, GRID_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT, FPS
 from src.policy.policy import Policy, PolicyDQN, PolicyPPO
 from src.utils.utils import flat_config
 from src.validation.clustering import plot_clusters
@@ -39,6 +39,7 @@ if __name__ == '__main__':
     parser.add_argument("--samples_per_cluster", type=int, default=4)
     parser.add_argument("--cluster_out", default="imgs/clusters.png", help="Path to save cluster plot")
     parser.add_argument("--cluster-plot", type=bool, default=False, help="Whether to show cluster plot")
+    parser.add_argument("--registration", action="store_true")
 
     args = parser.parse_args()
 
@@ -46,6 +47,8 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
 
     config = flat_config(config)
+
+    registration = args.registration
 
     device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
 
@@ -130,13 +133,29 @@ if __name__ == '__main__':
 
     env = SnakeEnv(render_mode="human", observation_type="image", difficulty=config.get("difficulty"), rescale_frames=True)
 
+    if registration:
+        import cv2
+
     selected_actions = []
     all_embeddings = []
     all_frames = []
 
     for episode in range(args.episodes):
 
+        if registration:
+            video = cv2.VideoWriter(
+            f"video/result_difficulty_{config.get('difficulty')}_{episode}.mp4",
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            FPS,
+            (WIDTH, TOTAL_HEIGHT)
+        )
+
         x_t, _ = env.reset()
+
+        if registration:
+            frame = cv2.cvtColor(x_t, cv2.COLOR_RGB2BGR)
+            video.write(frame)
+
         env.render()
         x_t = torch.tensor(np.expand_dims(x_t, 0)).float().to(device=device)
 
@@ -161,6 +180,11 @@ if __name__ == '__main__':
                 
                 # Step the real environment
                 x_tp1, r_t, done, _, info = env.step(a_t)
+
+                if registration:
+                    frame = cv2.cvtColor(x_tp1, cv2.COLOR_RGB2BGR)
+                    video.write(frame)
+
                 x_tp1 = torch.tensor(np.expand_dims(x_tp1, 0)).float().to(device=device)
 
                 # Check if the action is actually legit
@@ -171,6 +195,9 @@ if __name__ == '__main__':
                 x_t = x_tp1
 
                 env.render()
+        
+        if registration:
+            video.release()
 
     # Compute statistics on selected actions
     action_counts = np.bincount(selected_actions, minlength=action_dim)
