@@ -160,7 +160,7 @@ class Transformer(nn.Module):
         cond_dim : int= 1,
         dropout : float = 0.0,
         use_adaLN : bool = False,
-        no_last_layer_norm=True
+        no_last_layer_norm=False
     ):
         super().__init__()
         self.norm = nn.LayerNorm(hidden_dim) if not no_last_layer_norm else nn.Identity()
