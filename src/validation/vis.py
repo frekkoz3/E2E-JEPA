@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 
-from src.jepa.transformers import VisualTransformer, Predictor
+from src.jepa.transformers import VisualTransformer, Predictor, Projector
 from src.jepa.e2e_jepa import *
 from src.game.snake import SnakeEnv, TOTAL_HEIGHT, GRID_HEIGHT, WIDTH, CELL_SIZE, BAR_HEIGHT
 from src.policy.policy import Policy, PolicyDQN, PolicyPPO
